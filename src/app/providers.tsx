@@ -1,8 +1,19 @@
 'use client'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useState, type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { Toaster } from 'react-hot-toast'
+import { useAuthStore } from '@/store/authStore'
+import { useWalletStore } from '@/store/walletStore'
+
+function BalanceSyncer() {
+  const user = useAuthStore((s) => s.user)
+  const initBalances = useWalletStore((s) => s.initBalances)
+  useEffect(() => {
+    if (user) initBalances(user.neonCoins ?? 0, user.solBalance ?? 0)
+  }, [user?.id, user?.neonCoins, user?.solBalance]) // eslint-disable-line
+  return null
+}
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -17,6 +28,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <BalanceSyncer />
       {children}
       <Toaster
         position="top-right"

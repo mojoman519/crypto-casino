@@ -5,14 +5,18 @@ import { motion } from 'framer-motion'
 import { Copy, Check, TrendingUp, TrendingDown, Gamepad2, Share2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useWalletStore } from '@/store/walletStore'
+import { AnimatedBalance } from '@/components/shared/AnimatedBalance'
 import { formatCurrency, formatDate, getInitials } from '@/lib/utils'
+import { formatBalance } from '@/lib/currency'
+import { CURRENCY_ICONS } from '@/types/transactions'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 export default function ProfilePage() {
   const { user } = useAuthStore()
-  const { openDepositModal, openWithdrawModal } = useWalletStore()
+  const { openDepositModal, openWithdrawModal, NC, SOL, ETH, getRecentTransactions } = useWalletStore()
+  const transactions = getRecentTransactions(30)
   const [copied, setCopied] = useState(false)
   const [referralData, setReferralData] = useState<{
     referralCode: string
@@ -162,6 +166,78 @@ export default function ProfilePage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Balances */}
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold text-white mb-4">💰 Balances</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {([
+              { currency: 'NC' as const, balance: NC, label: 'Neon Coins', note: 'Demo only' },
+              { currency: 'SOL' as const, balance: SOL, label: 'Solana', note: 'Real money' },
+              { currency: 'ETH' as const, balance: ETH, label: 'Ethereum', note: 'Coming soon' },
+            ]).map(({ currency, balance: bal, label, note }) => (
+              <div key={currency} className={cn(
+                'glass-card p-4 text-center',
+                currency === 'ETH' && 'opacity-50'
+              )}>
+                <div className="text-2xl mb-1">{CURRENCY_ICONS[currency]}</div>
+                <AnimatedBalance currency={currency} balance={bal} size="lg" showIcon={false} className="justify-center" />
+                <div className="text-xs text-white/40 mt-1">{label}</div>
+                <div className="text-xs text-white/20 mt-0.5">{note}</div>
+                {currency === 'ETH' && (
+                  <span className="inline-block mt-2 px-2 py-0.5 rounded-full bg-white/5 text-white/30 text-xs">Coming Soon</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Transaction history */}
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold text-white mb-4">📋 Transaction History</h2>
+          {transactions.length === 0 ? (
+            <div className="text-center py-8 text-white/30 text-sm">No transactions yet — start playing!</div>
+          ) : (
+            <div className="space-y-1 max-h-96 overflow-y-auto">
+              {transactions.map((tx) => (
+                <div key={tx.id} className={cn(
+                  'flex items-center justify-between p-3 rounded-xl transition-colors',
+                  tx.status === 'rolled_back' ? 'opacity-40' : '',
+                  tx.type === 'WIN' ? 'bg-emerald-500/5 hover:bg-emerald-500/10' :
+                  tx.type === 'LOSS' || tx.type === 'BET' ? 'bg-red-500/5 hover:bg-red-500/10' :
+                  tx.type === 'DEPOSIT' ? 'bg-blue-500/5 hover:bg-blue-500/10' :
+                  'bg-white/[0.02] hover:bg-white/[0.04]'
+                )}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">
+                      {tx.type === 'WIN' ? '🎉' :
+                       tx.type === 'LOSS' ? '💸' :
+                       tx.type === 'BET' ? '🎲' :
+                       tx.type === 'DEPOSIT' ? '📥' :
+                       tx.type === 'WITHDRAWAL' ? '📤' : '💰'}
+                    </span>
+                    <div>
+                      <div className="text-sm text-white/80">{tx.description}</div>
+                      <div className="text-xs text-white/30">{new Date(tx.timestamp).toLocaleString()}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className={cn(
+                      'text-sm font-bold font-mono',
+                      tx.type === 'WIN' || tx.type === 'DEPOSIT' ? 'text-emerald-400' : 'text-red-400'
+                    )}>
+                      {tx.type === 'WIN' || tx.type === 'DEPOSIT' ? '+' : '-'}
+                      {formatBalance(tx.amount, tx.currency)}
+                    </div>
+                    <div className="text-xs text-white/30 font-mono">
+                      bal: {formatBalance(tx.balanceAfter, tx.currency)}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

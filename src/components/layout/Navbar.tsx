@@ -10,7 +10,8 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useWalletStore } from '@/store/walletStore'
-import { formatCurrency, formatAddress } from '@/lib/utils'
+import { formatAddress } from '@/lib/utils'
+import { AnimatedBalance } from '@/components/shared/AnimatedBalance'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -24,7 +25,7 @@ const NAV_LINKS = [
 export function Navbar() {
   const pathname = usePathname()
   const { user, logout } = useAuthStore()
-  const { openWalletModal, openDepositModal, openWithdrawModal, connectedWallet } = useWalletStore()
+  const { openWalletModal, openDepositModal, openWithdrawModal, connectedWallet, NC, SOL } = useWalletStore()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
 
@@ -63,38 +64,25 @@ export function Navbar() {
           </div>
 
           {/* Right section */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {user ? (
               <>
-                {/* Neon Coins balance */}
-                {user.neonCoins > 0 && (
-                  <div className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl glass-card border border-purple-500/20">
-                    <span className="text-base leading-none">🎮</span>
-                    <span className="text-purple-300 font-bold font-mono text-sm">
-                      {formatCurrency(user.neonCoins, 0)} NC
-                    </span>
-                  </div>
-                )}
+                {/* NC balance */}
+                <div className="hidden sm:flex items-center px-3 py-2 rounded-xl glass-card border border-purple-500/20">
+                  <AnimatedBalance currency="NC" balance={NC} size="sm" />
+                </div>
 
-                {/* Real balance */}
+                {/* SOL balance */}
                 <button
                   onClick={openDepositModal}
-                  className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl glass-card border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-200 group"
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl glass-card border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-200 group"
                 >
-                  <span className="text-white/40 text-xs">◎</span>
-                  <span className="text-emerald-300 font-bold font-mono text-sm">
-                    {user.solBalance?.toFixed(4) ?? '0.0000'}
-                  </span>
-                  <Plus className="w-3 h-3 text-emerald-400 group-hover:text-emerald-300" />
+                  <AnimatedBalance currency="SOL" balance={SOL} size="sm" />
+                  <Plus className="w-3 h-3 text-emerald-400 group-hover:text-emerald-300 ml-1" />
                 </button>
 
-                {/* Deposit */}
-                <Button
-                  size="sm"
-                  variant="neon"
-                  onClick={openDepositModal}
-                  className="hidden sm:flex"
-                >
+                {/* Deposit button */}
+                <Button size="sm" variant="neon" onClick={openDepositModal} className="hidden sm:flex">
                   <ArrowDownToLine className="w-3.5 h-3.5" />
                   Deposit
                 </Button>
@@ -121,54 +109,43 @@ export function Navbar() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -8, scale: 0.95 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute right-0 top-full mt-2 w-48 glass-card border border-white/[0.06] overflow-hidden z-50"
+                        className="absolute right-0 top-full mt-2 w-52 glass-card border border-white/[0.06] overflow-hidden z-50"
                       >
                         <div className="p-2 space-y-1">
+                          {/* Balance summary */}
+                          <div className="px-3 py-2 space-y-1 border-b border-white/5 mb-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-white/40">Neon Coins</span>
+                              <AnimatedBalance currency="NC" balance={NC} size="sm" showIcon={false} />
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-white/40">SOL</span>
+                              <AnimatedBalance currency="SOL" balance={SOL} size="sm" showIcon={false} />
+                            </div>
+                          </div>
+
                           {connectedWallet && (
-                            <div className="px-3 py-2 text-xs text-white/40 font-mono">
+                            <div className="px-3 py-1 text-xs text-white/30 font-mono">
                               {formatAddress(connectedWallet.address)}
                             </div>
                           )}
-                          <Link
-                            href="/profile"
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors"
-                            onClick={() => setUserMenuOpen(false)}
-                          >
-                            <User className="w-4 h-4" />
-                            Profile
+                          <Link href="/profile" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors" onClick={() => setUserMenuOpen(false)}>
+                            <User className="w-4 h-4" />Profile
                           </Link>
-                          <Link
-                            href="/leaderboard"
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors"
-                            onClick={() => setUserMenuOpen(false)}
-                          >
-                            <Trophy className="w-4 h-4" />
-                            Leaderboard
+                          <Link href="/leaderboard" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors" onClick={() => setUserMenuOpen(false)}>
+                            <Trophy className="w-4 h-4" />Leaderboard
                           </Link>
                           {user.role === 'ADMIN' && (
-                            <Link
-                              href="/admin"
-                              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 transition-colors"
-                              onClick={() => setUserMenuOpen(false)}
-                            >
-                              <LayoutDashboard className="w-4 h-4" />
-                              Admin
+                            <Link href="/admin" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 transition-colors" onClick={() => setUserMenuOpen(false)}>
+                              <LayoutDashboard className="w-4 h-4" />Admin
                             </Link>
                           )}
-                          <button
-                            onClick={openWithdrawModal}
-                            className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors"
-                          >
-                            <Wallet className="w-4 h-4" />
-                            Withdraw
+                          <button onClick={openWithdrawModal} className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors">
+                            <Wallet className="w-4 h-4" />Withdraw
                           </button>
                           <div className="my-1 border-t border-white/5" />
-                          <button
-                            onClick={() => { logout(); setUserMenuOpen(false) }}
-                            className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
-                          >
-                            <LogOut className="w-4 h-4" />
-                            Sign Out
+                          <button onClick={() => { logout(); setUserMenuOpen(false) }} className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors">
+                            <LogOut className="w-4 h-4" />Sign Out
                           </button>
                         </div>
                       </motion.div>
@@ -183,7 +160,7 @@ export function Navbar() {
               </Button>
             )}
 
-            {/* Mobile menu toggle */}
+            {/* Mobile toggle */}
             <button
               className="md:hidden p-2 rounded-lg glass-card border border-white/[0.06] text-white/60 hover:text-white"
               onClick={() => setMobileOpen(!mobileOpen)}
@@ -209,33 +186,27 @@ export function Navbar() {
                     href={link.href}
                     className={cn(
                       'flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors',
-                      pathname === link.href
-                        ? 'bg-purple-500/20 text-purple-300'
-                        : 'text-white/60 hover:text-white hover:bg-white/5'
+                      pathname === link.href ? 'bg-purple-500/20 text-purple-300' : 'text-white/60 hover:text-white hover:bg-white/5'
                     )}
                     onClick={() => setMobileOpen(false)}
                   >
-                    <span>{link.icon}</span>
-                    {link.label}
+                    <span>{link.icon}</span>{link.label}
                   </Link>
                 ))}
                 {user && (
-                  <>
-                    <div className="px-4 py-2 flex items-center justify-between">
-                      <span className="text-white/40 text-sm">🎮 Neon Coins</span>
-                      <span className="text-purple-300 font-bold">{formatCurrency(user.neonCoins ?? 0, 0)} NC</span>
+                  <div className="px-4 py-2 space-y-2 border-t border-white/5 mt-2 pt-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-white/40">🎮 Neon Coins</span>
+                      <AnimatedBalance currency="NC" balance={NC} size="sm" showIcon={false} />
                     </div>
-                    <div className="px-4 py-2 flex items-center justify-between">
-                      <span className="text-white/40 text-sm">◎ SOL Balance</span>
-                      <span className="text-emerald-300 font-bold">{user.solBalance?.toFixed(4) ?? '0.0000'}</span>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-white/40">◎ SOL</span>
+                      <AnimatedBalance currency="SOL" balance={SOL} size="sm" showIcon={false} />
                     </div>
-                    <button
-                      onClick={() => { openDepositModal(); setMobileOpen(false) }}
-                      className="w-full btn-neon px-4 py-3 rounded-xl text-white font-semibold text-sm"
-                    >
+                    <button onClick={() => { openDepositModal(); setMobileOpen(false) }} className="w-full btn-neon px-4 py-3 rounded-xl text-white font-semibold text-sm mt-2">
                       Deposit
                     </button>
-                  </>
+                  </div>
                 )}
               </div>
             </motion.div>
