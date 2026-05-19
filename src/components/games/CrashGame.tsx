@@ -194,7 +194,7 @@ export function CrashGame() {
 
   // Mock: simulate crash rounds
   const simulateRound = () => {
-    if (crash.phase !== 'idle' && crash.phase !== 'waiting') return
+    if (crash.phase !== 'waiting') return
     setCrashPhase('flying')
     const crashAt = Math.random() < 0.3 ? 1.0 + Math.random() * 0.5 : 1.5 + Math.random() * 8
     setTimeout(() => {
