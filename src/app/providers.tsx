@@ -7,11 +7,13 @@ import { useAuthStore } from '@/store/authStore'
 import { useWalletStore } from '@/store/walletStore'
 
 function BalanceSyncer() {
+  const userId = useAuthStore((s) => s.user?.id)
   const user = useAuthStore((s) => s.user)
   const initBalances = useWalletStore((s) => s.initBalances)
   useEffect(() => {
+    // Only sync when a NEW user logs in — never overwrite mid-session balances
     if (user) initBalances(user.neonCoins ?? 0, user.solBalance ?? 0)
-  }, [user?.id, user?.neonCoins, user?.solBalance]) // eslint-disable-line
+  }, [userId]) // eslint-disable-line
   return null
 }
 

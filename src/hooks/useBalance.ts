@@ -15,29 +15,18 @@ export function useBalance(currency: Currency) {
   const placeBet = async <T>(
     amount: number,
     gameType: GameType,
-    action: () => Promise<{ won: boolean; winAmount: number; data: T }>
+    action: () => Promise<{ won: boolean; winAmount: number; data: T; serverBalance?: number }>
   ): Promise<{ won: boolean; winAmount: number; data: T }> => {
     if (!canAfford(amount)) throw new Error('Insufficient balance')
 
-    const pendingId = store.deductBalance(
-      amount,
-      currency,
-      `${gameType} bet`,
-      gameType
-    )
+    const pendingId = store.deductBalance(amount, currency, `${gameType} bet`, gameType)
 
     try {
       const result = await action()
+
       if (result.won && result.winAmount > 0) {
-        store.creditBalance(
-          result.winAmount,
-          currency,
-          `${gameType} win`,
-          pendingId,
-          gameType
-        )
+        store.creditBalance(result.winAmount, currency, `${gameType} win`, pendingId, gameType)
       } else {
-        // Loss — mark the pending bet as confirmed (already deducted)
         useWalletStore.setState((state) => ({
           isUpdatingBalance: false,
           transactions: state.transactions.map((t) =>
@@ -47,6 +36,12 @@ export function useBalance(currency: Currency) {
           ),
         }))
       }
+
+      // Sync exact server balance to prevent any drift
+      if (result.serverBalance !== undefined) {
+        store.setBalance(currency, result.serverBalance)
+      }
+
       return result
     } catch (err) {
       store.rollbackBalance(pendingId)

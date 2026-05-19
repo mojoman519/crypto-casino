@@ -69,7 +69,8 @@ export function CoinFlip() {
           throw new Error(error || 'Game failed')
         }
         const { data } = await res.json()
-        return { won: data.won, winAmount: data.winAmount, data }
+        const serverBalance = currency === 'NC' ? data.newNeonCoins : data.newBalance
+        return { won: data.won, winAmount: data.winAmount, data, serverBalance }
       })
 
       await new Promise((r) => setTimeout(r, 1500))
