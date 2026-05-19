@@ -69,14 +69,17 @@ model User {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  wallets         Wallet[]
-  transactions    Transaction[]
-  coinflipGames   CoinflipGame[]
-  crashBets       CrashBet[]
-  jackpotEntries  JackpotEntry[]
-  referrals       Referral[]     @relation("Referrer")
-  referredByUser  Referral?      @relation("Referred")
-  sessions        Session[]
+  wallets          Wallet[]
+  transactions     Transaction[]
+  coinflipGames    CoinflipGame[]
+  crashBets        CrashBet[]
+  jackpotEntries   JackpotEntry[]
+  referrals        Referral[]      @relation("Referrer")
+  referredByUser   Referral?       @relation("Referred")
+  sessions         Session[]
+  profile          UserProfile?
+  achievements     UserAchievement[]
+  unlockedThemes   UserTheme[]
 
   @@index([username])
   @@index([referralCode])
@@ -234,4 +237,83 @@ model GameSeed {
   seedHash   String   @unique
   revealed   Boolean  @default(false)
   createdAt  DateTime @default(now())
+}
+
+model UserProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  bio          String?  @db.VarChar(300)
+  website      String?
+  twitter      String?
+  discord      String?
+  themeId      String   @default("purple")
+  avatarUrl    String?
+  bannerUrl    String?
+  level        Int      @default(1)
+  xp           Int      @default(0)
+  streak       Int      @default(0)
+  longestStreak Int     @default(0)
+  lastLoginDate DateTime?
+  biggestWin   Float    @default(0)
+  favoriteGame String?
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  icon        String   @default("🏆")
+  xpReward    Int      @default(100)
+  trigger     String   // e.g. "games_played:100", "total_won:1000", "streak:7"
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  userAchievements UserAchievement[]
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  earnedAt      DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id])
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+}
+
+model Theme {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  primaryColor String
+  secondaryColor String
+  accentColor String
+  isFree      Boolean  @default(true)
+  priceSOL    Float    @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userThemes UserTheme[]
+}
+
+model UserTheme {
+  id        String   @id @default(cuid())
+  userId    String
+  themeId   String
+  purchasedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme Theme @relation(fields: [themeId], references: [id])
+
+  @@unique([userId, themeId])
+  @@index([userId])
 }

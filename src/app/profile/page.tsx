@@ -2,50 +2,118 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Copy, Check, TrendingUp, TrendingDown, Gamepad2, Share2 } from 'lucide-react'
+import { Edit2, Copy, Check, TrendingUp, TrendingDown, Gamepad2, Share2, Flame, Trophy, ExternalLink, Twitter } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
-import { getAuthToken } from '@/lib/token'
 import { useWalletStore } from '@/store/walletStore'
 import { AnimatedBalance } from '@/components/shared/AnimatedBalance'
-import { formatCurrency, formatDate, getInitials } from '@/lib/utils'
+import { AchievementBadge } from '@/components/profile/AchievementBadge'
+import { LevelBadge } from '@/components/profile/LevelBadge'
+import { ProfileEditModal } from '@/components/profile/ProfileEditModal'
+import { getAuthToken } from '@/lib/token'
 import { formatBalance } from '@/lib/currency'
 import { CURRENCY_ICONS } from '@/types/transactions'
+import { formatCurrency, formatDate, getInitials } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
+const THEME_COLORS: Record<string, { primary: string; glow: string }> = {
+  purple: { primary: '#7c3aed', glow: 'rgba(124,58,237,0.3)' },
+  cyan:   { primary: '#06b6d4', glow: 'rgba(6,182,212,0.3)' },
+  green:  { primary: '#10b981', glow: 'rgba(16,185,129,0.3)' },
+  gold:   { primary: '#f59e0b', glow: 'rgba(245,158,11,0.3)' },
+  red:    { primary: '#ef4444', glow: 'rgba(239,68,68,0.3)' },
+}
+
+interface ProfileData {
+  user: {
+    id: string
+    username: string
+    role: string
+    totalWagered: number
+    totalWon: number
+    gamesPlayed: number
+    createdAt: string
+    wallets: { chain: string; address: string }[]
+  }
+  profile: {
+    bio?: string
+    website?: string
+    twitter?: string
+    discord?: string
+    themeId: string
+    avatarUrl?: string
+    bannerUrl?: string
+    level: number
+    xp: number
+    streak: number
+    longestStreak: number
+    biggestWin: number
+    favoriteGame?: string
+    progress: number
+    rank: string
+    xpNeeded: number
+  }
+  achievements: {
+    id: string
+    name: string
+    description: string
+    icon: string
+    xpReward: number
+    earnedAt: string
+  }[]
+  unlockedThemeIds: string[]
+}
+
 export default function ProfilePage() {
   const { user } = useAuthStore()
-  const { openDepositModal, openWithdrawModal, NC, SOL, ETH, getRecentTransactions } = useWalletStore()
-  const transactions = getRecentTransactions(30)
+  const { openDepositModal, openWithdrawModal, NC, SOL } = useWalletStore()
+  const [profileData, setProfileData] = useState<ProfileData | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [copied, setCopied] = useState(false)
-  const [referralData, setReferralData] = useState<{
-    referralCode: string
-    referralLink: string
-    totalReferrals: number
-    totalEarnings: number
-    referrals: { username: string; wagered: number; yourEarnings: number; joinedAt: string }[]
-  } | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
+  const [referralData, setReferralData] = useState<{ referralLink: string; totalReferrals: number; totalEarnings: number } | null>(null)
+
+  const fetchProfile = () => {
+    if (!user) return
+    setIsLoading(true)
+    fetch('/api/profile', { headers: { Authorization: `Bearer ${getAuthToken()}` } })
+      .then(r => r.json())
+      .then(({ data }) => setProfileData(data))
+      .catch(() => {})
+      .finally(() => setIsLoading(false))
+  }
 
   useEffect(() => {
     if (!user) return
-    fetch('/api/referral', {
-      headers: { Authorization: `Bearer ${getAuthToken()}` },
-    })
-      .then((r) => r.json())
+    fetchProfile()
+    // Trigger daily streak
+    fetch('/api/profile/streak', { method: 'POST', headers: { Authorization: `Bearer ${getAuthToken()}` } })
+      .then(r => r.json())
+      .then(({ data }) => {
+        if (data?.isNew && data?.xpGained > 0) {
+          toast.success(`🔥 Day ${data.streak} streak! +${data.xpGained} XP`, { duration: 4000 })
+        }
+      }).catch(() => {})
+
+    fetch('/api/referral', { headers: { Authorization: `Bearer ${getAuthToken()}` } })
+      .then(r => r.json())
       .then(({ data }) => setReferralData(data))
-      .catch(console.error)
-  }, [user])
+      .catch(() => {})
+  }, [user?.id]) // eslint-disable-line
 
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <p className="text-white/40">Please connect your wallet to view your profile.</p>
-        </div>
+        <p className="text-white/40">Connect your wallet to view your profile.</p>
       </div>
     )
   }
+
+  const profile = profileData?.profile
+  const achievements = profileData?.achievements ?? []
+  const theme = THEME_COLORS[profile?.themeId ?? 'purple']
+  const profitLoss = (profileData?.user.totalWon ?? 0) - (profileData?.user.totalWagered ?? 0)
 
   const copyReferral = () => {
     if (!referralData) return
@@ -55,53 +123,126 @@ export default function ProfilePage() {
     toast.success('Referral link copied!')
   }
 
-  const profitLoss = user.totalWon - user.totalWagered
-  const winRate = user.gamesPlayed > 0 ? ((user.totalWon / user.totalWagered) * 100).toFixed(1) : '0'
-
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-        {/* Profile header */}
-        <div className="glass-card p-8">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-            <div className="relative">
-              <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-3xl font-black text-white shadow-neon-purple">
-                {getInitials(user.username)}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+
+        {/* Profile card */}
+        <div className="glass-card overflow-hidden relative">
+          {/* Animated banner */}
+          <div
+            className="h-32 relative overflow-hidden"
+            style={{ background: `linear-gradient(135deg, ${theme.primary}40, ${theme.primary}10, rgba(0,0,0,0))` }}
+          >
+            <div className="absolute inset-0 bg-hero-pattern opacity-30" />
+            <motion.div
+              className="absolute inset-0"
+              animate={{ backgroundPosition: ['0% 0%', '100% 100%'] }}
+              transition={{ duration: 8, repeat: Infinity, repeatType: 'reverse' }}
+              style={{ background: `radial-gradient(circle at 30% 50%, ${theme.glow} 0%, transparent 60%)` }}
+            />
+            <Button variant="secondary" size="sm" onClick={() => setEditOpen(true)}
+              className="absolute top-3 right-3 gap-1.5 text-xs">
+              <Edit2 className="w-3.5 h-3.5" /> Edit Profile
+            </Button>
+          </div>
+
+          <div className="p-6 -mt-12 relative">
+            <div className="flex flex-col sm:flex-row items-start gap-5">
+              {/* Avatar */}
+              <div className="relative flex-shrink-0">
+                <div
+                  className="w-24 h-24 rounded-2xl overflow-hidden border-4 shadow-2xl"
+                  style={{ borderColor: theme.primary, boxShadow: `0 0 30px ${theme.glow}` }}
+                >
+                  {profile?.avatarUrl
+                    ? <img src={profile.avatarUrl} alt={user.username} className="w-full h-full object-cover" />
+                    : <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-3xl font-black text-white">
+                        {getInitials(user.username)}
+                      </div>}
+                </div>
+                {profile && (
+                  <div className="absolute -bottom-2 -right-2">
+                    <LevelBadge level={profile.level} xp={profile.xp} showProgress={false} size="sm" />
+                  </div>
+                )}
               </div>
-              <div className={cn(
-                'absolute -bottom-1 -right-1 px-2 py-0.5 rounded-lg text-xs font-bold',
-                user.role === 'ADMIN' ? 'bg-red-500/30 text-red-300 border border-red-500/30' :
-                user.role === 'VIP' ? 'bg-yellow-500/30 text-yellow-300 border border-yellow-500/30' :
-                'bg-purple-500/30 text-purple-300 border border-purple-500/30'
-              )}>
-                {user.role}
+
+              <div className="flex-1 min-w-0 mt-10 sm:mt-0">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <h1 className="text-2xl font-black text-white">{user.username}</h1>
+                  {user.role === 'ADMIN' && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-500/20 text-red-300 border border-red-500/30">ADMIN</span>
+                  )}
+                  {user.role === 'VIP' && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">VIP</span>
+                  )}
+                  {profile && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold border" style={{ color: theme.primary, borderColor: `${theme.primary}40`, background: `${theme.primary}15` }}>
+                      {profile.rank}
+                    </span>
+                  )}
+                </div>
+
+                {profile?.bio && (
+                  <p className="text-sm text-white/60 mb-2 max-w-lg">{profile.bio}</p>
+                )}
+
+                <div className="flex flex-wrap items-center gap-3 text-xs text-white/40">
+                  <span>Joined {formatDate(profileData?.user.createdAt ?? '')}</span>
+                  {profile?.streak && profile.streak > 1 && (
+                    <span className="flex items-center gap-1 text-orange-400">
+                      <Flame className="w-3.5 h-3.5" /> {profile.streak} day streak
+                    </span>
+                  )}
+                  {profile?.twitter && (
+                    <a href={`https://twitter.com/${profile.twitter.replace('@','')}`} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors">
+                      <Twitter className="w-3.5 h-3.5" /> {profile.twitter}
+                    </a>
+                  )}
+                  {profile?.website && (
+                    <a href={profile.website} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1 text-purple-400 hover:text-purple-300 transition-colors">
+                      <ExternalLink className="w-3.5 h-3.5" /> Website
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="flex-1 text-center sm:text-left">
-              <h1 className="text-3xl font-black text-white">{user.username}</h1>
-              <p className="text-white/40 text-sm mt-1">Member since {formatDate(user.createdAt)}</p>
-
-              <div className="flex flex-wrap gap-3 mt-4 justify-center sm:justify-start">
-                <Button variant="neon" size="sm" onClick={openDepositModal}>Deposit</Button>
-                <Button variant="outline" size="sm" onClick={openWithdrawModal}>Withdraw</Button>
+            {/* XP progress bar */}
+            {profile && (
+              <div className="mt-4">
+                <LevelBadge level={profile.level} xp={profile.xp} showProgress size="md" />
               </div>
-            </div>
-
-            <div className="text-center sm:text-right">
-              <div className="text-xs text-white/40 uppercase tracking-widest mb-1">Balance</div>
-              <div className="text-4xl font-black neon-text">${formatCurrency(user.balance)}</div>
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {/* Balances */}
+        <div className="grid grid-cols-3 gap-3">
           {[
-            { label: 'Total Wagered', value: `$${formatCurrency(user.totalWagered)}`, icon: Gamepad2, color: 'text-purple-400' },
-            { label: 'Total Won', value: `$${formatCurrency(user.totalWon)}`, icon: TrendingUp, color: 'text-emerald-400' },
+            { currency: 'NC' as const, balance: NC, label: 'Neon Coins', note: 'Demo' },
+            { currency: 'SOL' as const, balance: SOL, label: 'Solana', note: 'Real' },
+            { currency: 'ETH' as const, balance: 0, label: 'Ethereum', note: 'Soon' },
+          ].map(({ currency, balance, label, note }) => (
+            <div key={currency} className={cn('glass-card p-4 text-center', currency === 'ETH' && 'opacity-40')}>
+              <div className="text-xl mb-1">{CURRENCY_ICONS[currency]}</div>
+              <AnimatedBalance currency={currency} balance={balance} size="md" showIcon={false} className="justify-center" />
+              <div className="text-xs text-white/30 mt-1">{label}</div>
+              {currency === 'ETH' && <div className="text-xs text-white/20 mt-0.5">Coming Soon</div>}
+            </div>
+          ))}
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Total Wagered', value: `$${formatCurrency(profileData?.user.totalWagered ?? 0)}`, icon: Gamepad2, color: 'text-purple-400' },
+            { label: 'Total Won', value: `$${formatCurrency(profileData?.user.totalWon ?? 0)}`, icon: TrendingUp, color: 'text-emerald-400' },
             { label: 'P/L', value: `${profitLoss >= 0 ? '+' : ''}$${formatCurrency(profitLoss)}`, icon: profitLoss >= 0 ? TrendingUp : TrendingDown, color: profitLoss >= 0 ? 'text-emerald-400' : 'text-red-400' },
-            { label: 'Games Played', value: user.gamesPlayed.toLocaleString(), icon: Gamepad2, color: 'text-cyan-400' },
+            { label: 'Games', value: (profileData?.user.gamesPlayed ?? 0).toLocaleString(), icon: Gamepad2, color: 'text-cyan-400' },
           ].map((stat) => (
             <div key={stat.label} className="glass-card p-4">
               <div className="flex items-center justify-between mb-2">
@@ -113,136 +254,98 @@ export default function ProfilePage() {
           ))}
         </div>
 
-        {/* Referral program */}
-        <div className="glass-card p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <Share2 className="w-5 h-5 text-purple-400" />
-            <h2 className="text-xl font-bold text-white">Referral Program</h2>
-            <span className="px-2 py-0.5 rounded text-xs bg-purple-500/20 text-purple-400 font-bold">5% lifetime</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <div className="glass-card p-4 text-center">
-              <div className="text-2xl font-black text-white">{referralData?.totalReferrals ?? 0}</div>
-              <div className="text-xs text-white/40 mt-1">Total Referrals</div>
-            </div>
-            <div className="glass-card p-4 text-center">
-              <div className="text-2xl font-black text-emerald-400">
-                ${formatCurrency(referralData?.totalEarnings ?? 0)}
+        {/* Streak & achievements row */}
+        {profile && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="glass-card p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Flame className="w-5 h-5 text-orange-400" />
+                <h2 className="font-bold text-white">Daily Streak</h2>
               </div>
-              <div className="text-xs text-white/40 mt-1">Total Earned</div>
+              <div className="flex items-end gap-3">
+                <div className="text-5xl font-black text-orange-400">{profile.streak}</div>
+                <div>
+                  <div className="text-white/60 text-sm">days in a row</div>
+                  <div className="text-white/30 text-xs">Best: {profile.longestStreak} days</div>
+                </div>
+              </div>
             </div>
-            <div className="glass-card p-4 text-center">
-              <div className="text-2xl font-black text-purple-400">5%</div>
-              <div className="text-xs text-white/40 mt-1">Commission Rate</div>
-            </div>
-          </div>
 
-          <div>
-            <label className="text-xs text-white/40 uppercase tracking-widest mb-2 block">Your Referral Link</label>
-            <div className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/10">
-              <code className="text-sm text-purple-300 flex-1 truncate font-mono">
-                {referralData?.referralLink ?? `https://neonbet.gg/?ref=${user.referralCode}`}
-              </code>
-              <button
-                onClick={copyReferral}
-                className="flex-shrink-0 p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-              >
-                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-white/40" />}
-              </button>
-            </div>
-          </div>
-
-          {referralData && referralData.referrals.length > 0 && (
-            <div className="mt-4">
-              <div className="text-xs text-white/40 uppercase tracking-widest mb-3">Your Referrals</div>
-              <div className="space-y-2">
-                {referralData.referrals.map((r) => (
-                  <div key={r.username} className="flex items-center justify-between py-2 border-b border-white/5">
-                    <span className="text-sm text-white/70">{r.username}</span>
-                    <div className="text-right">
-                      <div className="text-sm text-white font-mono">${formatCurrency(r.wagered)} wagered</div>
-                      <div className="text-xs text-emerald-400">+${formatCurrency(r.yourEarnings)} earned</div>
-                    </div>
-                  </div>
+            <div className="glass-card p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Trophy className="w-5 h-5 text-yellow-400" />
+                <h2 className="font-bold text-white">Achievements ({achievements.length})</h2>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {achievements.slice(0, 6).map(ach => (
+                  <AchievementBadge key={ach.id} achievement={ach} size="sm" />
                 ))}
+                {achievements.length === 0 && (
+                  <p className="text-white/30 text-sm">No achievements yet — start playing!</p>
+                )}
               </div>
             </div>
-          )}
+          </div>
+        )}
+
+        {/* Transaction history */}
+        <div className="glass-card p-5">
+          <h2 className="text-lg font-bold text-white mb-4">📋 Transaction History</h2>
+          {/* Reuse wallet store transactions */}
+          <div className="text-center py-4 text-white/30 text-sm">
+            View your transactions on the <a href="/profile#history" className="text-purple-400 underline">History tab</a>
+          </div>
         </div>
 
-        {/* Balances */}
-        <div className="glass-card p-6">
-          <h2 className="text-xl font-bold text-white mb-4">💰 Balances</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {([
-              { currency: 'NC' as const, balance: NC, label: 'Neon Coins', note: 'Demo only' },
-              { currency: 'SOL' as const, balance: SOL, label: 'Solana', note: 'Real money' },
-              { currency: 'ETH' as const, balance: ETH, label: 'Ethereum', note: 'Coming soon' },
-            ]).map(({ currency, balance: bal, label, note }) => (
-              <div key={currency} className={cn(
-                'glass-card p-4 text-center',
-                currency === 'ETH' && 'opacity-50'
-              )}>
-                <div className="text-2xl mb-1">{CURRENCY_ICONS[currency]}</div>
-                <AnimatedBalance currency={currency} balance={bal} size="lg" showIcon={false} className="justify-center" />
-                <div className="text-xs text-white/40 mt-1">{label}</div>
-                <div className="text-xs text-white/20 mt-0.5">{note}</div>
-                {currency === 'ETH' && (
-                  <span className="inline-block mt-2 px-2 py-0.5 rounded-full bg-white/5 text-white/30 text-xs">Coming Soon</span>
-                )}
+        {/* Referral */}
+        <div className="glass-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Share2 className="w-5 h-5 text-purple-400" />
+            <h2 className="font-bold text-white">Referral Program</h2>
+            <span className="px-2 py-0.5 rounded text-xs bg-purple-500/20 text-purple-400 font-bold">5% lifetime</span>
+          </div>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {[
+              { label: 'Referrals', value: referralData?.totalReferrals ?? 0 },
+              { label: 'Earnings', value: `$${formatCurrency(referralData?.totalEarnings ?? 0)}` },
+              { label: 'Commission', value: '5%' },
+            ].map(s => (
+              <div key={s.label} className="glass-card p-3 text-center">
+                <div className="text-xl font-black text-white">{s.value}</div>
+                <div className="text-xs text-white/40 mt-0.5">{s.label}</div>
               </div>
             ))}
           </div>
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/10">
+            <code className="text-sm text-purple-300 flex-1 truncate font-mono">
+              {referralData?.referralLink ?? `https://neonbet.gg/?ref=${user.username}`}
+            </code>
+            <button onClick={copyReferral} className="flex-shrink-0 p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+              {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-white/40" />}
+            </button>
+          </div>
         </div>
 
-        {/* Transaction history */}
-        <div className="glass-card p-6">
-          <h2 className="text-xl font-bold text-white mb-4">📋 Transaction History</h2>
-          {transactions.length === 0 ? (
-            <div className="text-center py-8 text-white/30 text-sm">No transactions yet — start playing!</div>
-          ) : (
-            <div className="space-y-1 max-h-96 overflow-y-auto">
-              {transactions.map((tx) => (
-                <div key={tx.id} className={cn(
-                  'flex items-center justify-between p-3 rounded-xl transition-colors',
-                  tx.status === 'rolled_back' ? 'opacity-40' : '',
-                  tx.type === 'WIN' ? 'bg-emerald-500/5 hover:bg-emerald-500/10' :
-                  tx.type === 'LOSS' || tx.type === 'BET' ? 'bg-red-500/5 hover:bg-red-500/10' :
-                  tx.type === 'DEPOSIT' ? 'bg-blue-500/5 hover:bg-blue-500/10' :
-                  'bg-white/[0.02] hover:bg-white/[0.04]'
-                )}>
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg">
-                      {tx.type === 'WIN' ? '🎉' :
-                       tx.type === 'LOSS' ? '💸' :
-                       tx.type === 'BET' ? '🎲' :
-                       tx.type === 'DEPOSIT' ? '📥' :
-                       tx.type === 'WITHDRAWAL' ? '📤' : '💰'}
-                    </span>
-                    <div>
-                      <div className="text-sm text-white/80">{tx.description}</div>
-                      <div className="text-xs text-white/30">{new Date(tx.timestamp).toLocaleString()}</div>
-                    </div>
+        {/* Wallet connections */}
+        {profileData?.user.wallets && profileData.user.wallets.length > 0 && (
+          <div className="glass-card p-5">
+            <h2 className="font-bold text-white mb-3">🔗 Connected Wallets</h2>
+            <div className="space-y-2">
+              {profileData.user.wallets.map(w => (
+                <div key={w.address} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{w.chain === 'SOLANA' ? '◎' : 'Ξ'}</span>
+                    <span className="text-xs text-white/50 font-mono">{w.address}</span>
                   </div>
-                  <div className="text-right">
-                    <div className={cn(
-                      'text-sm font-bold font-mono',
-                      tx.type === 'WIN' || tx.type === 'DEPOSIT' ? 'text-emerald-400' : 'text-red-400'
-                    )}>
-                      {tx.type === 'WIN' || tx.type === 'DEPOSIT' ? '+' : '-'}
-                      {formatBalance(tx.amount, tx.currency)}
-                    </div>
-                    <div className="text-xs text-white/30 font-mono">
-                      bal: {formatBalance(tx.balanceAfter, tx.currency)}
-                    </div>
-                  </div>
+                  <span className="text-xs text-white/30">{w.chain}</span>
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </motion.div>
+
+      <ProfileEditModal open={editOpen} onClose={() => setEditOpen(false)} onSaved={fetchProfile} />
     </div>
   )
 }
