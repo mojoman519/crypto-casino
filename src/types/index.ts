@@ -3,6 +3,8 @@ export type Chain = 'SOLANA' | 'ETHEREUM'
 export type GameType = 'COINFLIP' | 'CRASH' | 'JACKPOT'
 export type GameStatus = 'PENDING' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
 
+export type BalanceMode = 'neon' | 'sol'
+
 export interface User {
   id: string
   email?: string
@@ -10,6 +12,8 @@ export interface User {
   avatar?: string
   role: Role
   balance: number
+  neonCoins: number
+  solBalance: number
   totalWagered: number
   totalWon: number
   gamesPlayed: number

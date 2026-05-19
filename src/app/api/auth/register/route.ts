@@ -6,28 +6,29 @@ import { nanoid } from 'nanoid'
 
 export async function POST(req: NextRequest) {
   try {
-    const { username, password, email, referralCode } = await req.json()
+    const { username, password, email, referralCode, neonCoins } = await req.json()
 
     if (!username || !password) {
       return NextResponse.json({ success: false, error: 'Username and password required' }, { status: 400 })
     }
-
     if (username.length < 3 || username.length > 20) {
-      return NextResponse.json({ success: false, error: 'Username must be 3-20 characters' }, { status: 400 })
+      return NextResponse.json({ success: false, error: 'Username must be 3–20 characters' }, { status: 400 })
     }
-
     if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-      return NextResponse.json({ success: false, error: 'Username can only contain letters, numbers, and underscores' }, { status: 400 })
+      return NextResponse.json({ success: false, error: 'Username can only contain letters, numbers and underscores' }, { status: 400 })
     }
-
     if (password.length < 8) {
       return NextResponse.json({ success: false, error: 'Password must be at least 8 characters' }, { status: 400 })
     }
 
     const existing = await db.user.findFirst({
-      where: { OR: [{ username: username.toLowerCase() }, ...(email ? [{ email }] : [])] },
+      where: {
+        OR: [
+          { username: username.toLowerCase().trim() },
+          ...(email ? [{ email }] : []),
+        ],
+      },
     })
-
     if (existing) {
       return NextResponse.json({ success: false, error: 'Username or email already taken' }, { status: 409 })
     }
@@ -38,6 +39,10 @@ export async function POST(req: NextRequest) {
       if (referrer) referredBy = referrer.id
     }
 
+    const startingNeonCoins = typeof neonCoins === 'number' && neonCoins >= 100
+      ? Math.min(neonCoins, 10_000_000)
+      : 10_000
+
     const passwordHash = await hashPassword(password)
     const user = await db.user.create({
       data: {
@@ -46,7 +51,9 @@ export async function POST(req: NextRequest) {
         passwordHash,
         referralCode: nanoid(8),
         referredBy,
-        balance: 100, // Welcome bonus
+        neonCoins: startingNeonCoins,
+        balance: 0,
+        solBalance: 0,
       },
       include: { wallets: true },
     })
@@ -58,7 +65,6 @@ export async function POST(req: NextRequest) {
     }
 
     const token = signToken({ userId: user.id, username: user.username, role: user.role })
-
     const cookieStore = await cookies()
     cookieStore.set(AUTH_COOKIE_NAME, token, COOKIE_OPTIONS)
 

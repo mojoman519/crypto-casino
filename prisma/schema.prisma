@@ -59,6 +59,8 @@ model User {
   totalWon        Float    @default(0)
   totalLost       Float    @default(0)
   gamesPlayed     Int      @default(0)
+  neonCoins       Float    @default(0)
+  solBalance      Float    @default(0)
   referralCode    String   @unique @default(cuid())
   referredBy      String?
   isVerified      Boolean  @default(false)

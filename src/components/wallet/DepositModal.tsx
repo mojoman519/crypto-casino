@@ -11,11 +11,11 @@ import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
+const HOUSE_WALLET = '7hkLAPoX5UQ2KjbRXboVLVRjz8jnx8ReAUSKTzBugRYe'
+
 const CURRENCIES = [
-  { id: 'USDC', label: 'USDC', chain: 'SOLANA', icon: '💵', network: 'Solana' },
-  { id: 'SOL', label: 'SOL', chain: 'SOLANA', icon: '◎', network: 'Solana' },
-  { id: 'ETH', label: 'ETH', chain: 'ETHEREUM', icon: 'Ξ', network: 'Ethereum' },
-  { id: 'USDT', label: 'USDT', chain: 'ETHEREUM', icon: '💚', network: 'Ethereum (ERC-20)' },
+  { id: 'SOL', label: 'SOL', chain: 'SOLANA', icon: '◎', network: 'Solana', address: HOUSE_WALLET },
+  { id: 'USDC', label: 'USDC', chain: 'SOLANA', icon: '💵', network: 'Solana (SPL)', address: HOUSE_WALLET },
 ]
 
 const QUICK_AMOUNTS = [10, 25, 50, 100, 250, 500]
@@ -30,9 +30,7 @@ export function DepositModal() {
   const [isLoading, setIsLoading] = useState(false)
   const [step, setStep] = useState<'amount' | 'confirm'>('amount')
 
-  const depositAddress = selectedCurrency.chain === 'SOLANA'
-    ? 'So1xKB3DWCQmXJKmrpZxL8QjY5gK7uT2nF8vHpEbRPx'
-    : '0x742d35Cc6634C0532925a3b8D4C9F14e71A0D4C3'
+  const depositAddress = selectedCurrency.address ?? HOUSE_WALLET
 
   const handleCopy = () => {
     navigator.clipboard.writeText(depositAddress)
