@@ -2,11 +2,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyToken, requireAdmin } from '@/lib/auth'
 
+const DEFAULT_THEMES = [
+  { name: 'Purple', slug: 'purple', primaryColor: '#7c3aed', secondaryColor: '#9333ea', accentColor: '#a855f7', isFree: true, priceSOL: 0 },
+  { name: 'Cyan',   slug: 'cyan',   primaryColor: '#06b6d4', secondaryColor: '#0ea5e9', accentColor: '#22d3ee', isFree: true, priceSOL: 0 },
+  { name: 'Green',  slug: 'green',  primaryColor: '#10b981', secondaryColor: '#14b8a6', accentColor: '#22c55e', isFree: true, priceSOL: 0 },
+  { name: 'Gold',   slug: 'gold',   primaryColor: '#f59e0b', secondaryColor: '#f97316', accentColor: '#fbbf24', isFree: false, priceSOL: 0.01 },
+  { name: 'Red',    slug: 'red',    primaryColor: '#ef4444', secondaryColor: '#e11d48', accentColor: '#f87171', isFree: false, priceSOL: 0.005 },
+]
+
 export async function GET() {
-  const themes = await db.theme.findMany({
+  let themes = await db.theme.findMany({
     where: { isActive: true },
     orderBy: { createdAt: 'asc' },
   })
+
+  // Auto-seed on first access
+  if (themes.length === 0) {
+    await db.theme.createMany({ data: DEFAULT_THEMES })
+    themes = await db.theme.findMany({ where: { isActive: true }, orderBy: { createdAt: 'asc' } })
+  }
+
   return NextResponse.json({ success: true, data: themes })
 }
 

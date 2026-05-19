@@ -109,14 +109,19 @@ export async function PATCH(req: NextRequest) {
     if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl
     if (bannerUrl !== undefined) updates.bannerUrl = bannerUrl
 
+    const FREE_THEMES = new Set(['purple', 'cyan', 'green'])
     if (themeId !== undefined) {
-      const theme = await db.theme.findUnique({ where: { slug: themeId } })
-      if (!theme) return NextResponse.json({ success: false, error: 'Theme not found' }, { status: 404 })
-      if (!theme.isFree) {
+      if (FREE_THEMES.has(themeId)) {
+        // Built-in free theme — no DB lookup needed
+        updates.themeId = themeId
+      } else {
+        // Premium theme — must exist in DB and be purchased
+        const theme = await db.theme.findUnique({ where: { slug: themeId } })
+        if (!theme) return NextResponse.json({ success: false, error: 'Theme not found' }, { status: 404 })
         const owned = await db.userTheme.findFirst({ where: { userId: payload.userId, themeId: theme.id } })
         if (!owned) return NextResponse.json({ success: false, error: 'Theme not purchased' }, { status: 403 })
+        updates.themeId = themeId
       }
-      updates.themeId = themeId
     }
 
     const profile = await db.userProfile.upsert({

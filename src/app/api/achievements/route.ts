@@ -4,10 +4,20 @@ import { requireAdmin } from '@/lib/auth'
 import { seedDefaultAchievements } from '@/lib/achievements'
 
 export async function GET() {
-  const achievements = await db.achievement.findMany({
+  let achievements = await db.achievement.findMany({
     orderBy: { createdAt: 'asc' },
     include: { _count: { select: { userAchievements: true } } },
   })
+
+  // Auto-seed on first access
+  if (achievements.length === 0) {
+    await seedDefaultAchievements()
+    achievements = await db.achievement.findMany({
+      orderBy: { createdAt: 'asc' },
+      include: { _count: { select: { userAchievements: true } } },
+    })
+  }
+
   return NextResponse.json({ success: true, data: achievements })
 }
 
