@@ -9,6 +9,7 @@ import { useWalletStore } from '@/store/walletStore'
 import { useBalance } from '@/hooks/useBalance'
 import { AnimatedBalance } from '@/components/shared/AnimatedBalance'
 import { PlayModeToggle } from '@/components/shared/PlayModeToggle'
+import { getAuthToken } from '@/lib/token'
 import { formatBalance } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -60,7 +61,7 @@ export function CoinFlip() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('casino_token') ?? ''}`,
+            Authorization: `Bearer ${getAuthToken()}`,
           },
           body: JSON.stringify({ betAmount: parsedBet, choice, mode: playMode }),
         })

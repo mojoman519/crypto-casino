@@ -6,6 +6,7 @@ import { Loader2, Gem, Users, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/store/authStore'
 import { useWalletStore } from '@/store/walletStore'
+import { getAuthToken } from '@/lib/token'
 import { useGameStore } from '@/store/gameStore'
 import { formatCurrency, randomColor, getJackpotWinChance } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -201,7 +202,7 @@ export function JackpotGame() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('casino_token') ?? ''}`,
+          Authorization: `Bearer ${getAuthToken()}`,
         },
         body: JSON.stringify({ betAmount: parsedBet }),
       })

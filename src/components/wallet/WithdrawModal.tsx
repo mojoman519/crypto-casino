@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useWalletStore } from '@/store/walletStore'
 import { useAuthStore } from '@/store/authStore'
+import { getAuthToken } from '@/lib/token'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -33,7 +34,7 @@ export function WithdrawModal() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('casino_token')}`,
+          Authorization: `Bearer ${getAuthToken()}`,
         },
         body: JSON.stringify({ amount: parsedAmount, address }),
       })

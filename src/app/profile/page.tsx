@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Copy, Check, TrendingUp, TrendingDown, Gamepad2, Share2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import { getAuthToken } from '@/lib/token'
 import { useWalletStore } from '@/store/walletStore'
 import { AnimatedBalance } from '@/components/shared/AnimatedBalance'
 import { formatCurrency, formatDate, getInitials } from '@/lib/utils'
@@ -29,7 +30,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!user) return
     fetch('/api/referral', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('casino_token') ?? ''}` },
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
     })
       .then((r) => r.json())
       .then(({ data }) => setReferralData(data))

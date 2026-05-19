@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useWalletStore } from '@/store/walletStore'
 import { useGameStore } from '@/store/gameStore'
 import { formatCurrency, formatMultiplier } from '@/lib/utils'
+import { getAuthToken } from '@/lib/token'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
@@ -142,7 +143,7 @@ export function CrashGame() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('casino_token') ?? ''}`,
+          Authorization: `Bearer ${getAuthToken()}`,
         },
         body: JSON.stringify({
           betAmount: parsedBet,
@@ -177,7 +178,7 @@ export function CrashGame() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('casino_token') ?? ''}`,
+          Authorization: `Bearer ${getAuthToken()}`,
         },
         body: JSON.stringify({ multiplier: crash.currentMultiplier }),
       })

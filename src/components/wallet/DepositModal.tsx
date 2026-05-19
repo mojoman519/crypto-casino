@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useWalletStore } from '@/store/walletStore'
+import { getAuthToken } from '@/lib/token'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -50,7 +51,7 @@ export function DepositModal() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('casino_token')}`,
+          Authorization: `Bearer ${getAuthToken()}`,
         },
         body: JSON.stringify({
           amount: parseFloat(amount),

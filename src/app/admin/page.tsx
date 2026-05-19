@@ -7,6 +7,7 @@ import {
   Shield, Ban, Gift, RefreshCw, BarChart3,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import { getAuthToken } from '@/lib/token'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -44,7 +45,7 @@ export default function AdminPage() {
     setIsLoading(true)
     try {
       const res = await fetch('/api/admin', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('casino_token') ?? ''}` },
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
       })
       if (!res.ok) throw new Error('Unauthorized')
       const { data } = await res.json()
