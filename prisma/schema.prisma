@@ -1,0 +1,235 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  VIP
+  ADMIN
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  WIN
+  LOSS
+  REFERRAL_BONUS
+  AIRDROP
+}
+
+enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  CANCELLED
+}
+
+enum GameType {
+  COINFLIP
+  CRASH
+  JACKPOT
+}
+
+enum GameStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum Chain {
+  SOLANA
+  ETHEREUM
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String?  @unique
+  username        String   @unique
+  passwordHash    String?
+  avatar          String?
+  role            Role     @default(USER)
+  balance         Float    @default(0)
+  totalWagered    Float    @default(0)
+  totalWon        Float    @default(0)
+  totalLost       Float    @default(0)
+  gamesPlayed     Int      @default(0)
+  referralCode    String   @unique @default(cuid())
+  referredBy      String?
+  isVerified      Boolean  @default(false)
+  isBanned        Boolean  @default(false)
+  lastSeen        DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  wallets         Wallet[]
+  transactions    Transaction[]
+  coinflipGames   CoinflipGame[]
+  crashBets       CrashBet[]
+  jackpotEntries  JackpotEntry[]
+  referrals       Referral[]     @relation("Referrer")
+  referredByUser  Referral?      @relation("Referred")
+  sessions        Session[]
+
+  @@index([username])
+  @@index([referralCode])
+}
+
+model Wallet {
+  id        String   @id @default(cuid())
+  userId    String
+  chain     Chain
+  address   String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chain, address])
+  @@index([userId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+}
+
+model Transaction {
+  id        String            @id @default(cuid())
+  userId    String
+  type      TransactionType
+  amount    Float
+  currency  String            @default("USDC")
+  chain     Chain?
+  txHash    String?           @unique
+  status    TransactionStatus @default(PENDING)
+  note      String?
+  createdAt DateTime          @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model CoinflipGame {
+  id           String     @id @default(cuid())
+  userId       String
+  betAmount    Float
+  choice       String     // "heads" | "tails"
+  result       String     // "heads" | "tails"
+  winAmount    Float      @default(0)
+  multiplier   Float      @default(2)
+  serverSeed   String
+  clientSeed   String
+  nonce        Int
+  hashResult   String
+  status       GameStatus @default(COMPLETED)
+  createdAt    DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model CrashRound {
+  id           String     @id @default(cuid())
+  multiplier   Float?
+  serverSeed   String     @unique
+  serverSeedHash String
+  crashPoint   Float
+  status       GameStatus @default(ACTIVE)
+  startedAt    DateTime   @default(now())
+  endedAt      DateTime?
+
+  bets CrashBet[]
+
+  @@index([status])
+  @@index([startedAt])
+}
+
+model CrashBet {
+  id               String     @id @default(cuid())
+  userId           String
+  crashRoundId     String
+  betAmount        Float
+  cashoutMultiplier Float?
+  winAmount        Float      @default(0)
+  autoCashout      Float?
+  status           GameStatus @default(ACTIVE)
+  createdAt        DateTime   @default(now())
+
+  user       User       @relation(fields: [userId], references: [id])
+  crashRound CrashRound @relation(fields: [crashRoundId], references: [id])
+
+  @@index([userId])
+  @@index([crashRoundId])
+}
+
+model JackpotRound {
+  id           String     @id @default(cuid())
+  poolAmount   Float      @default(0)
+  winnerId     String?
+  serverSeed   String     @unique
+  serverSeedHash String
+  ticketTotal  Float      @default(0)
+  status       GameStatus @default(ACTIVE)
+  startedAt    DateTime   @default(now())
+  endedAt      DateTime?
+
+  entries JackpotEntry[]
+
+  @@index([status])
+}
+
+model JackpotEntry {
+  id             String   @id @default(cuid())
+  userId         String
+  jackpotRoundId String
+  betAmount      Float
+  ticketStart    Float
+  ticketEnd      Float
+  color          String
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id])
+  jackpotRound JackpotRound @relation(fields: [jackpotRoundId], references: [id])
+
+  @@index([jackpotRoundId])
+  @@index([userId])
+}
+
+model Referral {
+  id          String   @id @default(cuid())
+  referrerId  String
+  referredId  String   @unique
+  earnings    Float    @default(0)
+  createdAt   DateTime @default(now())
+
+  referrer User @relation("Referrer", fields: [referrerId], references: [id])
+  referred User @relation("Referred", fields: [referredId], references: [id])
+
+  @@index([referrerId])
+}
+
+model GameSeed {
+  id         String   @id @default(cuid())
+  serverSeed String   @unique
+  seedHash   String   @unique
+  revealed   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}

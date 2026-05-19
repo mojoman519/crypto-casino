@@ -1,0 +1,214 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 4%;
+    --foreground: 210 40% 98%;
+    --card: 240 8% 6%;
+    --card-foreground: 210 40% 98%;
+    --popover: 240 8% 6%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 263 70% 50%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 330 81% 60%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 240 6% 15%;
+    --muted-foreground: 215 20% 55%;
+    --accent: 193 80% 44%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 240 6% 14%;
+    --input: 240 6% 12%;
+    --ring: 263 70% 50%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    background-color: #050508;
+    background-image:
+      radial-gradient(ellipse at 20% 20%, rgba(124, 58, 237, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(236, 72, 153, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(6, 182, 212, 0.03) 0%, transparent 70%);
+    min-height: 100vh;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0a0a0f;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(124, 58, 237, 0.4);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(124, 58, 237, 0.7);
+  }
+
+  ::selection {
+    background: rgba(124, 58, 237, 0.4);
+    color: white;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300 hover:border-purple-500/30 hover:bg-white/[0.05];
+    &:hover {
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 30px rgba(124, 58, 237, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+  }
+
+  .neon-border {
+    position: relative;
+    &::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(135deg, #7c3aed, #ec4899, #06b6d4);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+    }
+  }
+
+  .neon-text {
+    @apply bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent;
+  }
+
+  .neon-text-purple {
+    @apply text-purple-400;
+    text-shadow: 0 0 20px rgba(167, 139, 250, 0.8), 0 0 40px rgba(124, 58, 237, 0.4);
+  }
+
+  .neon-text-pink {
+    @apply text-pink-400;
+    text-shadow: 0 0 20px rgba(244, 114, 182, 0.8), 0 0 40px rgba(236, 72, 153, 0.4);
+  }
+
+  .neon-text-green {
+    @apply text-emerald-400;
+    text-shadow: 0 0 20px rgba(52, 211, 153, 0.8), 0 0 40px rgba(16, 185, 129, 0.4);
+  }
+
+  .btn-neon {
+    @apply relative overflow-hidden font-semibold transition-all duration-300;
+    background: linear-gradient(135deg, #7c3aed, #ec4899);
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 30px rgba(124, 58, 237, 0.6), 0 0 60px rgba(236, 72, 153, 0.3);
+    }
+    &:active {
+      transform: translateY(0);
+    }
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent 40%, rgba(255, 255, 255, 0.1) 60%, transparent 80%);
+      transform: translateX(-100%);
+      transition: transform 0.6s;
+    }
+    &:hover::after {
+      transform: translateX(100%);
+    }
+  }
+
+  .bet-input {
+    @apply bg-white/5 border border-purple-500/20 rounded-xl px-4 py-3 text-white placeholder-white/30 transition-all duration-200;
+    &:focus {
+      @apply outline-none border-purple-500/60;
+      box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+    }
+  }
+
+  .win-flash {
+    animation: win-flash 0.6s ease-out;
+  }
+
+  .lose-flash {
+    animation: lose-flash 0.6s ease-out;
+  }
+
+  .stat-card {
+    @apply glass-card p-4 flex flex-col gap-1;
+  }
+
+  .game-card {
+    @apply glass-card-hover cursor-pointer p-6 flex flex-col gap-4 relative overflow-hidden;
+  }
+
+  .live-dot {
+    @apply w-2 h-2 rounded-full bg-emerald-400;
+    box-shadow: 0 0 8px rgba(52, 211, 153, 0.8);
+    animation: pulse 2s ease-in-out infinite;
+  }
+}
+
+@keyframes win-flash {
+  0% { background-color: transparent; }
+  30% { background-color: rgba(16, 185, 129, 0.2); }
+  100% { background-color: transparent; }
+}
+
+@keyframes lose-flash {
+  0% { background-color: transparent; }
+  30% { background-color: rgba(239, 68, 68, 0.2); }
+  100% { background-color: transparent; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Crash game chart */
+.crash-canvas {
+  background: transparent;
+}
+
+/* Jackpot wheel */
+.jackpot-segment {
+  transition: opacity 0.3s ease;
+}
+
+/* Number ticker animation */
+.number-ticker {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+}
