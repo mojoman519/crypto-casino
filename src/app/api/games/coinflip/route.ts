@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const payload = verifyToken(token)
     if (!payload) return NextResponse.json({ success: false, error: 'Invalid token' }, { status: 401 })
 
-    const { betAmount, choice } = await req.json()
+    const { betAmount, choice, mode = 'real' } = await req.json()
 
     if (!['heads', 'tails'].includes(choice)) {
       return NextResponse.json({ success: false, error: 'Invalid choice' }, { status: 400 })
@@ -33,7 +33,15 @@ export async function POST(req: NextRequest) {
     const user = await db.user.findUnique({ where: { id: payload.userId } })
     if (!user) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
     if (user.isBanned) return NextResponse.json({ success: false, error: 'Account suspended' }, { status: 403 })
-    if (user.balance < betAmount) return NextResponse.json({ success: false, error: 'Insufficient balance' }, { status: 400 })
+
+    const isNeonMode = mode === 'neon'
+    const currentBalance = isNeonMode ? user.neonCoins : user.balance
+    if (currentBalance < betAmount) {
+      return NextResponse.json({
+        success: false,
+        error: isNeonMode ? 'Not enough Neon Coins' : 'Insufficient balance'
+      }, { status: 400 })
+    }
 
     // Generate provably fair result
     const serverSeed = generateServerSeed()
@@ -45,9 +53,11 @@ export async function POST(req: NextRequest) {
     const won = result === choice
     const winAmount = won ? betAmount * 2 * (1 - HOUSE_EDGE) : 0
     const balanceDelta = won ? winAmount - betAmount : -betAmount
-    const newBalance = user.balance + balanceDelta
 
-    // Atomic DB update
+    const balanceUpdate = isNeonMode
+      ? { neonCoins: user.neonCoins + balanceDelta }
+      : { balance: user.balance + balanceDelta }
+
     const [game, updatedUser] = await db.$transaction([
       db.coinflipGame.create({
         data: {
@@ -67,19 +77,11 @@ export async function POST(req: NextRequest) {
       db.user.update({
         where: { id: user.id },
         data: {
-          balance: newBalance,
+          ...balanceUpdate,
           totalWagered: { increment: betAmount },
           totalWon: won ? { increment: winAmount } : undefined,
           totalLost: won ? undefined : { increment: betAmount },
           gamesPlayed: { increment: 1 },
-        },
-      }),
-      db.transaction.create({
-        data: {
-          userId: user.id,
-          type: won ? 'WIN' : 'LOSS',
-          amount: won ? winAmount : betAmount,
-          status: 'CONFIRMED',
         },
       }),
     ])
@@ -92,11 +94,12 @@ export async function POST(req: NextRequest) {
         won,
         winAmount,
         betAmount,
+        mode,
         newBalance: updatedUser.balance,
+        newNeonCoins: updatedUser.neonCoins,
         serverSeedHash,
         clientSeed,
         nonce,
-        // serverSeed revealed after game for verification
         serverSeed,
       },
     })

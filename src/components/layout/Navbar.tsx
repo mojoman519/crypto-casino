@@ -66,16 +66,26 @@ export function Navbar() {
           <div className="flex items-center gap-3">
             {user ? (
               <>
-                {/* Balance */}
+                {/* Neon Coins balance */}
+                {user.neonCoins > 0 && (
+                  <div className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl glass-card border border-purple-500/20">
+                    <span className="text-base leading-none">🎮</span>
+                    <span className="text-purple-300 font-bold font-mono text-sm">
+                      {formatCurrency(user.neonCoins, 0)} NC
+                    </span>
+                  </div>
+                )}
+
+                {/* Real balance */}
                 <button
                   onClick={openDepositModal}
-                  className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl glass-card border border-purple-500/20 hover:border-purple-500/40 transition-all duration-200 group"
+                  className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl glass-card border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-200 group"
                 >
-                  <span className="text-white/40 text-xs">BAL</span>
-                  <span className="text-white font-bold font-mono text-sm">
-                    ${formatCurrency(user.balance)}
+                  <span className="text-white/40 text-xs">◎</span>
+                  <span className="text-emerald-300 font-bold font-mono text-sm">
+                    {user.solBalance?.toFixed(4) ?? '0.0000'}
                   </span>
-                  <Plus className="w-3 h-3 text-purple-400 group-hover:text-purple-300" />
+                  <Plus className="w-3 h-3 text-emerald-400 group-hover:text-emerald-300" />
                 </button>
 
                 {/* Deposit */}
@@ -212,8 +222,12 @@ export function Navbar() {
                 {user && (
                   <>
                     <div className="px-4 py-2 flex items-center justify-between">
-                      <span className="text-white/40 text-sm">Balance</span>
-                      <span className="text-white font-bold">${formatCurrency(user.balance)}</span>
+                      <span className="text-white/40 text-sm">🎮 Neon Coins</span>
+                      <span className="text-purple-300 font-bold">{formatCurrency(user.neonCoins ?? 0, 0)} NC</span>
+                    </div>
+                    <div className="px-4 py-2 flex items-center justify-between">
+                      <span className="text-white/40 text-sm">◎ SOL Balance</span>
+                      <span className="text-emerald-300 font-bold">{user.solBalance?.toFixed(4) ?? '0.0000'}</span>
                     </div>
                     <button
                       onClick={() => { openDepositModal(); setMobileOpen(false) }}

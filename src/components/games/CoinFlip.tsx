@@ -2,12 +2,13 @@
 
 import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Loader2, Shield, TrendingUp, TrendingDown } from 'lucide-react'
+import { Loader2, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/store/authStore'
 import { useWalletStore } from '@/store/walletStore'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import { PlayModeToggle } from '@/components/shared/PlayModeToggle'
 import toast from 'react-hot-toast'
 
 type Choice = 'heads' | 'tails'
@@ -25,8 +26,9 @@ interface GameResult {
 const BET_PRESETS = [1, 5, 10, 25, 50, 100]
 
 export function CoinFlip() {
-  const { user, updateBalance } = useAuthStore()
+  const { user, updateBalance, updateNeonCoins } = useAuthStore()
   const { openWalletModal, openDepositModal } = useWalletStore()
+  const [playMode, setPlayMode] = useState<'neon' | 'real'>('neon')
   const [choice, setChoice] = useState<Choice>('heads')
   const [betAmount, setBetAmount] = useState('1')
   const [phase, setPhase] = useState<GamePhase>('idle')
@@ -35,7 +37,8 @@ export function CoinFlip() {
   const [isFlipping, setIsFlipping] = useState(false)
 
   const parsedBet = parseFloat(betAmount) || 0
-  const canPlay = user && parsedBet > 0 && parsedBet <= (user.balance ?? 0) && phase === 'idle'
+  const availableBalance = playMode === 'neon' ? (user?.neonCoins ?? 0) : (user?.solBalance ?? 0)
+  const canPlay = user && parsedBet > 0 && parsedBet <= availableBalance && phase === 'idle'
 
   const handlePlay = useCallback(async () => {
     if (!user) { openWalletModal(); return }
@@ -54,7 +57,7 @@ export function CoinFlip() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('casino_token') ?? ''}`,
         },
-        body: JSON.stringify({ betAmount: parsedBet, choice }),
+        body: JSON.stringify({ betAmount: parsedBet, choice, mode: playMode }),
       })
 
       if (!res.ok) {
@@ -70,7 +73,11 @@ export function CoinFlip() {
       setResult(data)
       setIsFlipping(false)
       setPhase('result')
-      updateBalance(data.newBalance)
+      if (playMode === 'neon') {
+        updateNeonCoins(data.newNeonCoins)
+      } else {
+        updateBalance(data.newBalance)
+      }
 
       if (data.won) {
         toast.success(`🎉 You won $${formatCurrency(data.winAmount)}!`, { duration: 4000 })
@@ -96,6 +103,9 @@ export function CoinFlip() {
 
   return (
     <div className="max-w-lg mx-auto">
+      <div className="mb-4">
+        <PlayModeToggle mode={playMode} onChange={setPlayMode} />
+      </div>
       {/* Coin display */}
       <div className="flex justify-center mb-10">
         <div className="relative">
@@ -198,7 +208,12 @@ export function CoinFlip() {
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs text-white/40 uppercase tracking-widest">Bet Amount</label>
             <span className="text-xs text-white/40">
-              Balance: <span className="text-white font-mono">${formatCurrency(user?.balance ?? 0)}</span>
+              {playMode === 'neon' ? '🎮' : '◎'}{' '}
+              <span className={cn('font-mono', playMode === 'neon' ? 'text-purple-300' : 'text-emerald-300')}>
+                {playMode === 'neon'
+                  ? `${formatCurrency(user?.neonCoins ?? 0, 0)} NC`
+                  : `${user?.solBalance?.toFixed(4) ?? '0.0000'} SOL`}
+              </span>
             </span>
           </div>
           <div className="relative">
@@ -275,9 +290,14 @@ export function CoinFlip() {
           </Button>
         )}
 
-        {parsedBet > (user?.balance ?? 0) && user && (
-          <button onClick={openDepositModal} className="text-sm text-center w-full text-purple-400 hover:text-purple-300 transition-colors">
-            Need more funds? Deposit →
+        {parsedBet > availableBalance && user && (
+          <button
+            onClick={playMode === 'real' ? openDepositModal : undefined}
+            className="text-sm text-center w-full text-purple-400 hover:text-purple-300 transition-colors"
+          >
+            {playMode === 'neon'
+              ? 'Not enough Neon Coins — reduce your bet'
+              : 'Need more SOL? Deposit →'}
           </button>
         )}
       </div>
