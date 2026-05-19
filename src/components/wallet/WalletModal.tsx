@@ -50,13 +50,16 @@ export function WalletModal() {
   const handleWalletConnect = async (walletId: string, chain: Chain) => {
     setIsLoading(true)
     setError(null)
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+
     try {
-      // Simulate wallet connection — replace with actual wallet adapter logic
-      await new Promise((r) => setTimeout(r, 1200))
+      await new Promise((r) => setTimeout(r, 800))
 
       const mockAddress = chain === 'SOLANA'
-        ? `So1${Math.random().toString(36).slice(2, 12)}...${Math.random().toString(36).slice(2, 6)}`
-        : `0x${Math.random().toString(16).slice(2, 12)}...${Math.random().toString(16).slice(2, 6)}`
+        ? `So1xKB3DWCQm${Math.random().toString(36).slice(2, 10)}XJKmrpZ`
+        : `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`
 
       const mockSignature = `sig_${Math.random().toString(36).slice(2, 20)}`
       const message = `Sign in to NeonBet Casino\nNonce: ${Date.now()}`
@@ -65,10 +68,13 @@ export function WalletModal() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chain, address: mockAddress, signature: mockSignature, message }),
+        signal: controller.signal,
       })
 
+      clearTimeout(timeout)
+
       if (!res.ok) {
-        const data = await res.json()
+        const data = await res.json().catch(() => ({ error: `Server error ${res.status}` }))
         throw new Error(data.error || 'Connection failed')
       }
 
@@ -78,7 +84,12 @@ export function WalletModal() {
       toast.success(`${walletId} connected!`)
       handleClose()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to connect wallet')
+      clearTimeout(timeout)
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('Connection timed out. Check your internet and try again.')
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to connect wallet')
+      }
     } finally {
       setIsLoading(false)
     }
