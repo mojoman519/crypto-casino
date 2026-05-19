@@ -1,392 +1,418 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Rocket, TrendingUp, Loader2, Shield, Users } from 'lucide-react'
+import { Rocket, TrendingUp, Loader2, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/store/authStore'
 import { useWalletStore } from '@/store/walletStore'
-import { useGameStore } from '@/store/gameStore'
-import { formatCurrency, formatMultiplier } from '@/lib/utils'
+import { useBalance } from '@/hooks/useBalance'
+import { useGameLock } from '@/hooks/useGameLock'
+import { useSounds } from '@/hooks/useSounds'
 import { getAuthToken } from '@/lib/token'
+import { formatMultiplier } from '@/lib/utils'
+import { formatBalance } from '@/lib/currency'
+import { PlayModeToggle } from '@/components/shared/PlayModeToggle'
+import { AnimatedBalance } from '@/components/shared/AnimatedBalance'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import type { Currency } from '@/types/transactions'
 
-const HISTORY_COLORS = (point: number) => {
-  if (point < 1.5) return 'text-red-400 bg-red-500/10 border-red-500/20'
-  if (point < 2) return 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-  if (point < 5) return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-  return 'text-purple-400 bg-purple-500/10 border-purple-500/20'
+type Phase = 'waiting' | 'flying' | 'crashed'
+
+const HISTORY_COLOR = (p: number) =>
+  p < 1.5 ? 'text-red-400 bg-red-500/10 border-red-500/20'
+  : p < 2 ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+  : p < 5 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+  : 'text-purple-400 bg-purple-500/10 border-purple-500/20'
+
+const GROWTH_RATE = 0.00006 // controls how fast multiplier rises
+
+function computeMultiplier(elapsedMs: number): number {
+  return Math.pow(Math.E, GROWTH_RATE * elapsedMs)
 }
 
-export function CrashGame() {
-  const { user, updateBalance } = useAuthStore()
+export const CrashGame = memo(function CrashGame() {
+  const { user } = useAuthStore()
   const { openWalletModal } = useWalletStore()
-  const { crash, setCrashMultiplier, setCrashPhase, setMyCrashBet, setCashedOut, addCrashHistory } = useGameStore()
+  const [playMode, setPlayMode] = useState<'neon' | 'real'>('neon')
+  const currency: Currency = playMode === 'neon' ? 'NC' : 'SOL'
+  const { balance, canAfford } = useBalance(currency)
+  const { isLocked, withLock } = useGameLock()
+  const sounds = useSounds()
 
+  // Bet state
   const [betAmount, setBetAmount] = useState('10')
   const [autoCashout, setAutoCashout] = useState('')
-  const [isPlacingBet, setIsPlacingBet] = useState(false)
+  const [myBet, setMyBet] = useState<{ amount: number } | null>(null)
+  const [cashedOut, setCashedOut] = useState(false)
+  const [cashoutMult, setCashoutMult] = useState(0)
+
+  // Phase & display (React state — triggers re-renders only when phase changes)
+  const [phase, setPhase] = useState<Phase>('waiting')
+  const [displayMult, setDisplayMult] = useState(1.0)
+  const [crashedAt, setCrashedAt] = useState(0)
+  const [history, setHistory] = useState<{ id: string; crashPoint: number }[]>([])
+  const [countdown, setCountdown] = useState(5)
+
+  // RAF refs — never cause re-renders
+  const rafRef = useRef<number>(0)
+  const startTimeRef = useRef<number>(0)
+  const multRef = useRef(1.0)
+  const phaseRef = useRef<Phase>('waiting')
+  const myBetRef = useRef<typeof myBet>(null)
+  const cashedOutRef = useRef(false)
+  const autoCashoutRef = useRef(0)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animFrameRef = useRef<number>(0)
-  const multiplierRef = useRef(1.0)
-  const startTimeRef = useRef(0)
-  const pointsRef = useRef<{ x: number; y: number }[]>([])
+  const pointsRef = useRef<[number, number][]>([[0, 0]])
 
   const parsedBet = parseFloat(betAmount) || 0
-  const parsedAutoCashout = parseFloat(autoCashout) || 0
+  const parsedAuto = parseFloat(autoCashout) || 0
 
-  // Simulated crash game engine (replace with socket.io events in production)
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>
-    if (crash.phase === 'flying') {
-      startTimeRef.current = Date.now()
-      pointsRef.current = [{ x: 0, y: 0 }]
-      interval = setInterval(() => {
-        const elapsed = (Date.now() - startTimeRef.current) / 1000
-        const mult = Math.pow(Math.E, 0.12 * elapsed)
-        multiplierRef.current = mult
-        setCrashMultiplier(parseFloat(mult.toFixed(2)))
-        drawCrashLine()
-
-        // Auto cashout
-        if (parsedAutoCashout > 0 && mult >= parsedAutoCashout && crash.myBet && !crash.hasCashedOut) {
-          handleCashout()
-        }
-      }, 50)
-    }
-    return () => clearInterval(interval)
-  }, [crash.phase]) // eslint-disable-line
-
-  const drawCrashLine = useCallback(() => {
+  // ─── Canvas draw ────────────────────────────────────────────────────────────
+  const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const ctx = canvas.getContext('2d')
+    const ctx = canvas.getContext('2d', { alpha: false })
     if (!ctx) return
 
     const W = canvas.width
     const H = canvas.height
-    ctx.clearRect(0, 0, W, H)
+    ctx.fillStyle = '#0a0a14'
+    ctx.fillRect(0, 0, W, H)
 
-    const mult = multiplierRef.current
-    const progress = Math.min((mult - 1) / 9, 1)
+    const pts = pointsRef.current
+    if (pts.length < 2) return
 
-    // Grid
-    ctx.strokeStyle = 'rgba(255,255,255,0.04)'
-    ctx.lineWidth = 1
-    for (let i = 0; i <= 10; i++) {
-      ctx.beginPath()
-      ctx.moveTo((i / 10) * W, 0)
-      ctx.lineTo((i / 10) * W, H)
-      ctx.stroke()
-      ctx.beginPath()
-      ctx.moveTo(0, (i / 10) * H)
-      ctx.lineTo(W, (i / 10) * H)
-      ctx.stroke()
-    }
-
-    // Crash line
-    const currentX = progress * (W - 40) + 20
-    const currentY = H - 20 - progress * (H - 60)
-
-    pointsRef.current.push({ x: currentX, y: currentY })
-    if (pointsRef.current.length > 200) pointsRef.current.shift()
-
-    if (pointsRef.current.length < 2) return
+    const lastPt = pts[pts.length - 1]
+    const crashed = phaseRef.current === 'crashed'
 
     // Gradient line
-    const grad = ctx.createLinearGradient(20, H - 20, currentX, currentY)
-    grad.addColorStop(0, 'rgba(124, 58, 237, 0.8)')
-    grad.addColorStop(1, crash.phase === 'crashed' ? 'rgba(239, 68, 68, 1)' : 'rgba(16, 185, 129, 1)')
+    const grad = ctx.createLinearGradient(0, H, lastPt[0], lastPt[1])
+    grad.addColorStop(0, crashed ? 'rgba(239,68,68,0.8)' : 'rgba(124,58,237,0.8)')
+    grad.addColorStop(1, crashed ? 'rgba(239,68,68,1)' : 'rgba(16,185,129,1)')
 
     ctx.beginPath()
-    ctx.moveTo(20, H - 20)
-    for (const pt of pointsRef.current) {
-      ctx.lineTo(pt.x, pt.y)
-    }
+    ctx.moveTo(pts[0][0], pts[0][1])
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
 
-    // Fill under the line
-    ctx.lineTo(currentX, H - 20)
-    ctx.lineTo(20, H - 20)
-    const fillGrad = ctx.createLinearGradient(0, 0, 0, H)
-    fillGrad.addColorStop(0, 'rgba(124, 58, 237, 0.15)')
-    fillGrad.addColorStop(1, 'rgba(124, 58, 237, 0)')
-    ctx.fillStyle = fillGrad
+    // Fill under line
+    ctx.lineTo(lastPt[0], H - 10)
+    ctx.lineTo(pts[0][0], H - 10)
+    ctx.closePath()
+    const fill = ctx.createLinearGradient(0, 0, 0, H)
+    fill.addColorStop(0, crashed ? 'rgba(239,68,68,0.1)' : 'rgba(124,58,237,0.1)')
+    fill.addColorStop(1, 'rgba(0,0,0,0)')
+    ctx.fillStyle = fill
     ctx.fill()
 
+    // Line
     ctx.beginPath()
-    ctx.moveTo(20, H - 20)
-    for (const pt of pointsRef.current) {
-      ctx.lineTo(pt.x, pt.y)
-    }
+    ctx.moveTo(pts[0][0], pts[0][1])
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
     ctx.strokeStyle = grad
-    ctx.lineWidth = 3
+    ctx.lineWidth = 2.5
     ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
     ctx.stroke()
 
-    // Rocket emoji at tip
-    ctx.font = '24px serif'
-    ctx.fillText(crash.phase === 'crashed' ? '💥' : '🚀', currentX - 12, currentY - 8)
-  }, [crash.phase])
+    // Rocket/explosion at tip
+    ctx.font = '20px serif'
+    ctx.textAlign = 'center'
+    ctx.fillText(crashed ? '💥' : '🚀', lastPt[0], lastPt[1] - 8)
 
-  const handlePlaceBet = async () => {
-    if (!user) { openWalletModal(); return }
-    if (parsedBet <= 0 || parsedBet > user.balance) return
-    if (crash.phase !== 'waiting') {
-      toast.error('Wait for next round to place bet')
+    // Grid lines (light)
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)'
+    ctx.lineWidth = 1
+    for (let i = 1; i < 5; i++) {
+      ctx.beginPath(); ctx.moveTo(i * W / 5, 0); ctx.lineTo(i * W / 5, H); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(0, i * H / 5); ctx.lineTo(W, i * H / 5); ctx.stroke()
+    }
+  }, [])
+
+  // ─── RAF loop ────────────────────────────────────────────────────────────────
+  const rafLoop = useCallback((timestamp: number) => {
+    if (!startTimeRef.current) startTimeRef.current = timestamp
+    const elapsed = timestamp - startTimeRef.current
+    const mult = computeMultiplier(elapsed)
+    multRef.current = mult
+
+    // Update canvas point (curve up and right)
+    const canvas = canvasRef.current
+    if (canvas) {
+      const W = canvas.width
+      const H = canvas.height
+      const maxVisible = computeMultiplier(15000) // 15s at max visible
+      const t = Math.min(elapsed / 15000, 1)
+      const x = 20 + t * (W - 40)
+      const ratio = Math.min((mult - 1) / (maxVisible - 1), 1)
+      const y = H - 20 - ratio * (H - 50)
+      pointsRef.current.push([x, y])
+      if (pointsRef.current.length > 300) pointsRef.current.shift()
+    }
+
+    drawCanvas()
+
+    // Throttle React state update to every 100ms for display
+    if (elapsed % 100 < 16) {
+      setDisplayMult(parseFloat(mult.toFixed(2)))
+    }
+
+    // Auto cashout check
+    if (autoCashoutRef.current > 1 && mult >= autoCashoutRef.current && myBetRef.current && !cashedOutRef.current) {
+      handleCashout()
       return
     }
 
-    setIsPlacingBet(true)
-    try {
+    // Simulate crash for demo (replace with socket event in production)
+    if (mult >= multRef.current && phaseRef.current === 'flying') {
+      rafRef.current = requestAnimationFrame(rafLoop)
+    }
+  }, [drawCanvas])
+
+  // ─── Phase transitions ───────────────────────────────────────────────────────
+  const startRound = useCallback(() => {
+    phaseRef.current = 'flying'
+    setPhase('flying')
+    pointsRef.current = [[20, canvasRef.current?.height ?? 280 - 20]]
+    multRef.current = 1.0
+    startTimeRef.current = 0
+    setDisplayMult(1.0)
+    setCashedOut(false)
+    cashedOutRef.current = false
+    cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(rafLoop)
+  }, [rafLoop])
+
+  const endRound = useCallback((crashPoint: number) => {
+    cancelAnimationFrame(rafRef.current)
+    phaseRef.current = 'crashed'
+    setPhase('crashed')
+    setCrashedAt(crashPoint)
+    setDisplayMult(crashPoint)
+    drawCanvas()
+    sounds.playCrashBoom()
+
+    if (myBetRef.current && !cashedOutRef.current) {
+      toast.error(`💥 Crashed at ${formatMultiplier(crashPoint)}!`)
+    }
+
+    setHistory(prev => [{ id: Date.now().toString(), crashPoint }, ...prev].slice(0, 15))
+
+    // Next round after 3s countdown
+    let c = 5
+    setCountdown(c)
+    const timer = setInterval(() => {
+      c--
+      setCountdown(c)
+      if (c <= 0) {
+        clearInterval(timer)
+        phaseRef.current = 'waiting'
+        setPhase('waiting')
+        setMyBet(null)
+        myBetRef.current = null
+        startRound()
+      }
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [drawCanvas, sounds, startRound])
+
+  // ─── Mount: start simulated game ─────────────────────────────────────────────
+  useEffect(() => {
+    phaseRef.current = 'waiting'
+    let cleanup: (() => void) | void
+
+    const beginRound = () => {
+      startRound()
+      // Random crash point (1.01 to 20x, weighted toward lower)
+      const crashAt = Math.random() < 0.35
+        ? 1.0 + Math.random() * 0.8
+        : 1.5 + Math.pow(Math.random(), 1.5) * 18
+      const crashMs = Math.log(crashAt) / GROWTH_RATE
+
+      const timeout = setTimeout(() => {
+        cleanup = endRound(parseFloat(crashAt.toFixed(2)))
+      }, crashMs)
+
+      return () => clearTimeout(timeout)
+    }
+
+    const stop = beginRound()
+    return () => {
+      stop()
+      cancelAnimationFrame(rafRef.current)
+    }
+  }, []) // eslint-disable-line
+
+  // Sync autoCashout ref
+  useEffect(() => { autoCashoutRef.current = parsedAuto }, [parsedAuto])
+
+  // ─── Bet ─────────────────────────────────────────────────────────────────────
+  const handlePlaceBet = useCallback(async () => {
+    if (!user) { openWalletModal(); return }
+    if (phase !== 'waiting' || !parsedBet || !canAfford(parsedBet)) return
+
+    await withLock(async () => {
+      sounds.playBet()
       const res = await fetch('/api/games/crash', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
-        body: JSON.stringify({
-          betAmount: parsedBet,
-          autoCashout: parsedAutoCashout > 1 ? parsedAutoCashout : null,
-        }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+        body: JSON.stringify({ betAmount: parsedBet, autoCashout: parsedAuto > 1 ? parsedAuto : null, mode: playMode }),
       })
-
       if (!res.ok) {
         const { error } = await res.json()
         throw new Error(error)
       }
+      setMyBet({ amount: parsedBet })
+      myBetRef.current = { amount: parsedBet }
+      toast.success(`Bet placed: ${formatBalance(parsedBet, currency)}`)
+    })
+  }, [user, phase, parsedBet, parsedAuto, canAfford, playMode, currency, withLock, sounds, openWalletModal])
 
-      const { data } = await res.json()
-      setMyCrashBet(data.bet)
-      updateBalance(user.balance - parsedBet)
-      toast.success(`Bet placed: $${formatCurrency(parsedBet)}`)
-      setCrashPhase('flying')
-      setCashedOut(false)
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to place bet')
-    } finally {
-      setIsPlacingBet(false)
-    }
-  }
-
-  const handleCashout = async () => {
-    if (!crash.myBet || crash.hasCashedOut) return
+  // ─── Cashout ─────────────────────────────────────────────────────────────────
+  const handleCashout = useCallback(async () => {
+    if (!myBetRef.current || cashedOutRef.current || phaseRef.current !== 'flying') return
+    cashedOutRef.current = true
+    const mult = multRef.current
     setCashedOut(true)
+    setCashoutMult(parseFloat(mult.toFixed(2)))
+    sounds.playCashout()
+
+    const winAmount = myBetRef.current.amount * mult * 0.97
+    toast.success(`🚀 Cashed out at ${formatMultiplier(mult)}! +${formatBalance(winAmount, currency)}`, { duration: 5000 })
 
     try {
-      const res = await fetch('/api/games/crash/cashout', {
+      await fetch('/api/games/crash/cashout', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
-        body: JSON.stringify({ multiplier: crash.currentMultiplier }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+        body: JSON.stringify({ multiplier: mult }),
       })
-
-      if (!res.ok) throw new Error('Cashout failed')
-      const { data } = await res.json()
-      updateBalance(data.newBalance)
-      const winAmount = parsedBet * crash.currentMultiplier
-      toast.success(`Cashed out at ${formatMultiplier(crash.currentMultiplier)}! +$${formatCurrency(winAmount)}`, { duration: 5000 })
-    } catch {
-      setCashedOut(false)
-    }
-  }
-
-  // Mock: simulate crash rounds
-  const simulateRound = () => {
-    if (crash.phase !== 'waiting') return
-    setCrashPhase('flying')
-    const crashAt = Math.random() < 0.3 ? 1.0 + Math.random() * 0.5 : 1.5 + Math.random() * 8
-    setTimeout(() => {
-      setCrashPhase('crashed')
-      addCrashHistory({ crashPoint: parseFloat(crashAt.toFixed(2)), id: `r_${Date.now()}` })
-      drawCrashLine()
-      setTimeout(() => {
-        setCrashPhase('waiting')
-        multiplierRef.current = 1.0
-        setCrashMultiplier(1.0)
-        pointsRef.current = []
-        const canvas = canvasRef.current
-        if (canvas) {
-          const ctx = canvas.getContext('2d')
-          ctx?.clearRect(0, 0, canvas.width, canvas.height)
-        }
-        setTimeout(() => setCrashPhase('flying'), 5000)
-      }, 3000)
-    }, crashAt * 1000 * 1.5)
-  }
+    } catch {}
+  }, [currency, sounds])
 
   return (
-    <div className="space-y-4">
-      {/* History bar */}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        {crash.history.map((h) => (
-          <span
-            key={h.id}
-            className={cn('px-2.5 py-1 rounded-lg text-xs font-bold border whitespace-nowrap flex-shrink-0', HISTORY_COLORS(h.crashPoint))}
-          >
+    <div className="space-y-3">
+      {/* Mode toggle */}
+      <PlayModeToggle mode={playMode} onChange={setPlayMode} />
+
+      {/* History */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+        {history.map(h => (
+          <span key={h.id} className={cn('px-2 py-1 rounded-lg text-xs font-bold border whitespace-nowrap flex-shrink-0', HISTORY_COLOR(h.crashPoint))}>
             {formatMultiplier(h.crashPoint)}
           </span>
         ))}
-        {crash.history.length === 0 && (
-          <span className="text-xs text-white/30">No history yet</span>
-        )}
+        {history.length === 0 && <span className="text-xs text-white/20">Round history</span>}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Chart */}
-        <div className="lg:col-span-2 glass-card overflow-hidden relative" style={{ minHeight: 300 }}>
+        <div className="lg:col-span-2 glass-card overflow-hidden relative" style={{ minHeight: 280 }}>
+          <canvas ref={canvasRef} className="w-full h-full" width={600} height={280} style={{ touchAction: 'none' }} />
+
           {/* Multiplier overlay */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <AnimatePresence mode="wait">
-              {crash.phase === 'waiting' && (
-                <motion.div key="waiting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
-                  <div className="text-white/30 text-sm uppercase tracking-widest mb-2">Next round in</div>
-                  <div className="text-4xl font-black text-white">5s</div>
+              {phase === 'waiting' && (
+                <motion.div key="wait" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
+                  <div className="text-white/30 text-xs uppercase tracking-widest mb-1">Next round in</div>
+                  <div className="text-5xl font-black text-white">{countdown}s</div>
                 </motion.div>
               )}
-              {crash.phase === 'flying' && (
-                <motion.div key="flying" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center">
-                  <motion.div
-                    className="text-6xl font-black neon-text font-mono"
-                    animate={{ scale: [1, 1.02, 1] }}
-                    transition={{ repeat: Infinity, duration: 0.3 }}
-                  >
-                    {formatMultiplier(crash.currentMultiplier)}
-                  </motion.div>
-                  {crash.myBet && !crash.hasCashedOut && (
+              {phase === 'flying' && (
+                <motion.div key="fly" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center">
+                  <div className={cn('text-6xl font-black font-mono tabular-nums transition-colors duration-100', displayMult > 5 ? 'text-purple-300' : displayMult > 2 ? 'text-emerald-300' : 'text-white')}>
+                    {formatMultiplier(displayMult)}
+                  </div>
+                  {myBet && !cashedOut && (
                     <div className="text-sm text-emerald-400 mt-1 font-semibold">
-                      Profit: +${formatCurrency(parsedBet * crash.currentMultiplier - parsedBet)}
+                      +{formatBalance(myBet.amount * displayMult - myBet.amount, currency)}
                     </div>
                   )}
                 </motion.div>
               )}
-              {crash.phase === 'crashed' && (
-                <motion.div key="crashed" initial={{ scale: 2, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center">
-                  <div className="text-5xl mb-2">💥</div>
-                  <div className="text-4xl font-black text-red-400 font-mono">
-                    {formatMultiplier(crash.currentMultiplier)}
-                  </div>
-                  <div className="text-red-400/60 text-sm mt-1 uppercase tracking-widest">CRASHED</div>
+              {phase === 'crashed' && (
+                <motion.div key="crash" initial={{ scale: 2, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center">
+                  <div className="text-5xl mb-1">💥</div>
+                  <div className="text-4xl font-black text-red-400 font-mono">{formatMultiplier(crashedAt)}</div>
+                  <div className="text-red-400/60 text-xs uppercase tracking-widest mt-1">CRASHED</div>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
-
-          <canvas
-            ref={canvasRef}
-            className="w-full h-full crash-canvas"
-            width={600}
-            height={300}
-          />
-
-          {/* Dev: simulate button */}
-          <button
-            onClick={simulateRound}
-            className="absolute bottom-2 right-2 px-2 py-1 rounded text-xs bg-white/5 text-white/20 hover:text-white/60 transition-colors"
-          >
-            Simulate
-          </button>
         </div>
 
         {/* Controls */}
-        <div className="glass-card p-5 space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-white/5">
+        <div className="glass-card p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-white/80 border-b border-white/5 pb-3">
             <Rocket className="w-4 h-4 text-purple-400" />
-            <span className="font-semibold text-white">Place Bet</span>
+            Place Bet
+            <AnimatedBalance currency={currency} balance={balance} size="sm" className="ml-auto" />
           </div>
 
           <div>
-            <label className="text-xs text-white/40 uppercase tracking-widest mb-2 block">Bet Amount</label>
+            <label className="text-xs text-white/40 uppercase tracking-widest mb-1.5 block">Bet Amount</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40">$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm">{currency === 'NC' ? '🎮' : '◎'}</span>
               <input
                 type="number"
                 value={betAmount}
-                onChange={(e) => setBetAmount(e.target.value)}
-                disabled={crash.phase === 'flying'}
-                className="bet-input w-full pl-7 pr-3 h-11 text-lg font-bold"
+                onChange={e => setBetAmount(e.target.value)}
+                disabled={phase === 'flying' || isLocked}
+                className="bet-input w-full pl-8 pr-3 h-11 text-base font-bold"
+                inputMode="decimal"
               />
             </div>
-            <div className="grid grid-cols-4 gap-1 mt-2">
-              {[5, 10, 25, 50].map((a) => (
-                <button
-                  key={a}
-                  onClick={() => setBetAmount(String(a))}
-                  className="py-1 rounded-lg text-xs bg-white/5 border border-white/10 text-white/50 hover:text-white transition-colors"
-                >
-                  ${a}
+            <div className="grid grid-cols-4 gap-1 mt-1.5">
+              {[5, 10, 25, 50].map(a => (
+                <button key={a} onClick={() => setBetAmount(String(a))} disabled={phase === 'flying'}
+                  className="py-1 rounded-lg text-xs bg-white/5 border border-white/10 text-white/50 hover:text-white transition-colors disabled:opacity-40">
+                  {currency === 'NC' ? a.toLocaleString() : a}
                 </button>
               ))}
             </div>
           </div>
 
           <div>
-            <label className="text-xs text-white/40 uppercase tracking-widest mb-2 block">
-              Auto Cashout (optional)
-            </label>
+            <label className="text-xs text-white/40 uppercase tracking-widest mb-1.5 block">Auto Cashout</label>
             <div className="relative">
-              <input
-                type="number"
-                value={autoCashout}
-                onChange={(e) => setAutoCashout(e.target.value)}
-                disabled={crash.phase === 'flying'}
-                placeholder="e.g. 2.00"
-                className="bet-input w-full pr-6 h-11"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 text-sm">×</span>
+              <input type="number" value={autoCashout} onChange={e => setAutoCashout(e.target.value)}
+                disabled={phase === 'flying'} placeholder="e.g. 2.00"
+                className="bet-input w-full pr-6 h-10 text-sm"
+                inputMode="decimal" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 text-xs">×</span>
             </div>
           </div>
 
-          {/* Potential win */}
-          {parsedBet > 0 && parsedAutoCashout > 1 && (
-            <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-              <div className="text-xs text-white/40">At {formatMultiplier(parsedAutoCashout)}</div>
-              <div className="text-lg font-black text-emerald-400">
-                +${formatCurrency(parsedBet * parsedAutoCashout)}
-              </div>
+          {cashedOut && (
+            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center text-emerald-400 text-sm font-bold">
+              ✓ Cashed out {formatMultiplier(cashoutMult)}
             </div>
           )}
 
-          {crash.phase === 'flying' && crash.myBet && !crash.hasCashedOut ? (
-            <Button
-              variant="success"
-              className="w-full h-14 text-xl font-black animate-pulse-neon"
-              onClick={handleCashout}
-            >
-              CASHOUT {formatMultiplier(crash.currentMultiplier)}
+          {phase === 'flying' && myBet && !cashedOut ? (
+            <Button variant="success" className="w-full h-12 text-lg font-black animate-pulse-neon"
+              onClick={handleCashout}>
+              CASHOUT {formatMultiplier(displayMult)}
             </Button>
           ) : (
-            <Button
-              variant="neon"
-              className="w-full h-12"
-              onClick={handlePlaceBet}
-              disabled={isPlacingBet || crash.phase === 'flying' || !parsedBet}
-            >
-              {isPlacingBet ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
-              {crash.phase === 'flying' ? 'Round in progress' : `Bet $${formatCurrency(parsedBet)}`}
+            <Button variant="neon" className="w-full h-12" onClick={handlePlaceBet}
+              disabled={isLocked || phase === 'flying' || !parsedBet || !canAfford(parsedBet)}>
+              {isLocked ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
+              {phase === 'flying' ? 'Round in progress' : `Bet ${formatBalance(parsedBet || 0, currency)}`}
             </Button>
-          )}
-
-          {crash.hasCashedOut && (
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center text-emerald-400 text-sm font-semibold">
-              ✓ Cashed out at {formatMultiplier(crash.currentMultiplier)}
-            </div>
           )}
         </div>
       </div>
 
-      {/* Active bets */}
-      <div className="glass-card p-4">
-        <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-white/60">
-          <Users className="w-4 h-4" />
-          Active Bets (0)
-        </div>
-        <div className="text-center py-4 text-white/20 text-sm">
-          No active bets this round
+      {/* Active bets placeholder */}
+      <div className="glass-card p-3">
+        <div className="flex items-center gap-2 text-xs text-white/40">
+          <Users className="w-3.5 h-3.5" />
+          {myBet ? `Your bet: ${formatBalance(myBet.amount, currency)}` : 'No active bet this round'}
         </div>
       </div>
     </div>
   )
-}
+})

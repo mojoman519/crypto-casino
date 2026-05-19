@@ -19,6 +19,8 @@ const NAV_LINKS = [
   { href: '/games/coinflip', label: 'Coin Flip', icon: '🪙' },
   { href: '/games/crash', label: 'Crash', icon: '🚀' },
   { href: '/games/jackpot', label: 'Jackpot', icon: '💎' },
+  { href: '/games/roulette', label: 'Roulette', icon: '🎡' },
+  { href: '/games/dice', label: 'Dice', icon: '🎲' },
   { href: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
 ]
 

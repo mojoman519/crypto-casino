@@ -47,6 +47,32 @@ const GAMES = [
     badge: 'MEGA',
     badgeColor: 'bg-cyan-500/20 text-cyan-400',
   },
+  {
+    id: 'roulette',
+    name: 'Roulette',
+    description: 'Red, Black or Green — spin to win',
+    href: '/games/roulette',
+    icon: '🎡',
+    multiplier: '24x',
+    gradient: 'from-red-600/20 to-rose-600/20',
+    border: 'hover:border-red-500/50',
+    glow: 'hover:shadow-[0_0_40px_rgba(239,68,68,0.2)]',
+    badge: 'NEW',
+    badgeColor: 'bg-red-500/20 text-red-400',
+  },
+  {
+    id: 'dice',
+    name: 'Dice',
+    description: 'Roll over or under — set your own odds',
+    href: '/games/dice',
+    icon: '🎲',
+    multiplier: '98x',
+    gradient: 'from-amber-600/20 to-yellow-600/20',
+    border: 'hover:border-amber-500/50',
+    glow: 'hover:shadow-[0_0_40px_rgba(245,158,11,0.2)]',
+    badge: 'NEW',
+    badgeColor: 'bg-amber-500/20 text-amber-400',
+  },
 ]
 
 const FEATURES = [
@@ -172,7 +198,7 @@ export default function HomePage() {
             </Link>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             {GAMES.map((game, i) => (
               <motion.div key={game.id} variants={itemVariants} custom={i}>
                 <Link href={game.href}>
