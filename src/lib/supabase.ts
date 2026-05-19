@@ -1,9 +1,22 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+let _supabase: SupabaseClient | null = null
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export function getSupabase(): SupabaseClient | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !key) return null
+  if (!_supabase) _supabase = createClient(url, key)
+  return _supabase
+}
+
+export const supabase = new Proxy({} as SupabaseClient, {
+  get: (_, prop) => {
+    const client = getSupabase()
+    if (!client) return () => Promise.resolve({ data: null, error: new Error('Supabase not configured') })
+    return (client as unknown as Record<string, unknown>)[prop as string]
+  },
+})
 
 export const AVATAR_BUCKET = 'avatars'
 export const BANNER_BUCKET = 'banners'
