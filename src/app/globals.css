@@ -74,25 +74,12 @@
   }
 
   .glass-card-hover {
-    @apply glass-card transition-all duration-300 hover:border-purple-500/30 hover:bg-white/[0.05];
-    &:hover {
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 30px rgba(124, 58, 237, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    }
+    @apply bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl transition-all duration-300;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .neon-border {
     position: relative;
-    &::before {
-      content: '';
-      position: absolute;
-      inset: -1px;
-      border-radius: inherit;
-      padding: 1px;
-      background: linear-gradient(135deg, #7c3aed, #ec4899, #06b6d4);
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
-    }
   }
 
   .neon-text {
@@ -117,32 +104,10 @@
   .btn-neon {
     @apply relative overflow-hidden font-semibold transition-all duration-300;
     background: linear-gradient(135deg, #7c3aed, #ec4899);
-    &:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 0 30px rgba(124, 58, 237, 0.6), 0 0 60px rgba(236, 72, 153, 0.3);
-    }
-    &:active {
-      transform: translateY(0);
-    }
-    &::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, transparent 40%, rgba(255, 255, 255, 0.1) 60%, transparent 80%);
-      transform: translateX(-100%);
-      transition: transform 0.6s;
-    }
-    &:hover::after {
-      transform: translateX(100%);
-    }
   }
 
   .bet-input {
     @apply bg-white/5 border border-purple-500/20 rounded-xl px-4 py-3 text-white placeholder-white/30 transition-all duration-200;
-    &:focus {
-      @apply outline-none border-purple-500/60;
-      box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
-    }
   }
 
   .win-flash {
@@ -158,7 +123,8 @@
   }
 
   .game-card {
-    @apply glass-card-hover cursor-pointer p-6 flex flex-col gap-4 relative overflow-hidden;
+    @apply bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl transition-all duration-300 cursor-pointer p-6 flex flex-col gap-4 relative overflow-hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .live-dot {
@@ -166,6 +132,58 @@
     box-shadow: 0 0 8px rgba(52, 211, 153, 0.8);
     animation: pulse 2s ease-in-out infinite;
   }
+}
+
+.glass-card-hover:hover {
+  border-color: rgba(168, 85, 247, 0.3);
+  background-color: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 30px rgba(124, 58, 237, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.game-card:hover {
+  border-color: rgba(168, 85, 247, 0.3);
+  background-color: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 30px rgba(124, 58, 237, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.neon-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, #7c3aed, #ec4899, #06b6d4);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.btn-neon:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 30px rgba(124, 58, 237, 0.6), 0 0 60px rgba(236, 72, 153, 0.3);
+}
+
+.btn-neon:active {
+  transform: translateY(0);
+}
+
+.btn-neon::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(255, 255, 255, 0.1) 60%, transparent 80%);
+  transform: translateX(-100%);
+  transition: transform 0.6s;
+}
+
+.btn-neon:hover::after {
+  transform: translateX(100%);
+}
+
+.bet-input:focus {
+  outline: none;
+  border-color: rgba(124, 58, 237, 0.6);
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
 }
 
 @keyframes win-flash {
@@ -196,17 +214,14 @@
   animation: shimmer 2s infinite;
 }
 
-/* Crash game chart */
 .crash-canvas {
   background: transparent;
 }
 
-/* Jackpot wheel */
 .jackpot-segment {
   transition: opacity 0.3s ease;
 }
 
-/* Number ticker animation */
 .number-ticker {
   display: inline-block;
   overflow: hidden;
