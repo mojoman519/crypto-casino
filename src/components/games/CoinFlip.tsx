@@ -166,7 +166,7 @@ export function CoinFlip() {
                     : 'bg-red-500/20 border border-red-500/40 text-red-400'
                 )}
               >
-                {result.won ? `+$${formatCurrency(result.winAmount)} WIN!` : `−$${formatCurrency(parsedBet)} LOSS`}
+                {result.won ? `+${formatBalance(result.winAmount, currency)} WIN!` : `−${formatBalance(parsedBet, currency)} LOSS`}
               </motion.div>
             )}
           </AnimatePresence>
