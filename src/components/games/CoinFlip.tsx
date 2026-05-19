@@ -250,7 +250,7 @@ export function CoinFlip() {
         <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
           <span className="text-sm text-white/40">Potential win</span>
           <span className="text-lg font-black neon-text-green">
-            +${formatCurrency(parsedBet * 1.94)}
+            +{formatBalance(parsedBet * 1.94, currency)}
           </span>
         </div>
 
@@ -270,7 +270,7 @@ export function CoinFlip() {
             ) : phase === 'result' ? (
               result?.won ? '🎉 YOU WON!' : '💸 Try Again'
             ) : (
-              `Flip for $${parsedBet > 0 ? formatCurrency(parsedBet) : '?'}`
+              parsedBet > 0 ? `Flip for ${formatBalance(parsedBet, currency)}` : 'Flip'
             )}
           </Button>
         ) : (
@@ -323,7 +323,7 @@ export function CoinFlip() {
                     : 'bg-red-500/20 text-red-400'
                 )}
               >
-                {h.result === 'heads' ? 'H' : 'T'} {h.won ? '+' : '-'}${formatCurrency(h.won ? h.winAmount : parsedBet)}
+                {h.result === 'heads' ? 'H' : 'T'} {h.won ? '+' : '-'}{formatBalance(h.won ? h.winAmount : parsedBet, currency)}
               </div>
             ))}
           </div>
