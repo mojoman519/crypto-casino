@@ -93,7 +93,7 @@ export function WalletModal() {
         neonCoins: coins,
       })
       login(data.user, data.token)
-      toast.success(`🎮 ${coins.toLocaleString()} Neon Coins added! Let's play!`)
+      toast.success(`🎮 ${coins.toLocaleString()} Neon Coins added! Let's play!`, { duration: 5000 })
       handleClose()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed')
@@ -164,7 +164,11 @@ export function WalletModal() {
         : { username, password }
       const { data } = await callAuth(endpoint, body)
       login(data.user, data.token)
-      toast.success(authMode === 'register' ? '🎉 Account created! 10,000 Neon Coins added.' : 'Welcome back!')
+      if (authMode === 'register' && data.emailSent) {
+        toast.success('Account created! Check your email to verify.', { duration: 6000 })
+      } else {
+        toast.success(authMode === 'register' ? '🎉 Account created! 10,000 Neon Coins added.' : 'Welcome back!')
+      }
       handleClose()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Authentication failed')

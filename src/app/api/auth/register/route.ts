@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { hashPassword, signToken, AUTH_COOKIE_NAME, COOKIE_OPTIONS } from '@/lib/auth'
+import { sendVerificationEmail } from '@/lib/email'
 import { cookies } from 'next/headers'
 import { nanoid } from 'nanoid'
 
@@ -54,6 +55,7 @@ export async function POST(req: NextRequest) {
         neonCoins: startingNeonCoins,
         balance: 0,
         solBalance: 0,
+        isVerified: !email, // auto-verified if no email provided
       },
       include: { wallets: true },
     })
@@ -64,12 +66,32 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    // Send verification email if email was provided
+    if (email) {
+      const verifyToken = nanoid(32)
+      await db.session.create({
+        data: {
+          userId: user.id,
+          token: verifyToken,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        },
+      })
+      await sendVerificationEmail(email, user.username, verifyToken)
+    }
+
     const token = signToken({ userId: user.id, username: user.username, role: user.role })
     const cookieStore = await cookies()
     cookieStore.set(AUTH_COOKIE_NAME, token, COOKIE_OPTIONS)
 
     const { passwordHash: _, ...safeUser } = user
-    return NextResponse.json({ success: true, data: { user: safeUser, token } }, { status: 201 })
+    return NextResponse.json({
+      success: true,
+      data: {
+        user: safeUser,
+        token,
+        emailSent: !!email,
+      },
+    }, { status: 201 })
   } catch (err) {
     console.error('[auth/register]', err)
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
