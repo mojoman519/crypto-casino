@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 
 const AMOUNTS = [1_000, 10_000, 100_000, 1_000_000]
-const DAILY_LIMIT = 1_100_000  // max NC per day (covers all presets once)
+const DAILY_LIMIT = 1_100_000
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,26 +20,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Invalid amount' }, { status: 400 })
     }
 
-    // Daily limit check — sum NC added via this route in last 24h
+    // Daily limit: sum previous additions from audit log (past 24h)
     const since = new Date(Date.now() - 86_400_000)
-    const recentAdditions = await db.auditLog.aggregate({
-      where: {
-        userId: payload.userId,
-        action: 'BALANCE_ADJUSTED',
-        createdAt: { gte: since },
-      },
-      _sum: { data: true } as never,
-    })
-
-    // Count recent additions another way — check audit logs with the NC amount
     const recentLogs = await db.auditLog.findMany({
       where: { userId: payload.userId, action: 'BALANCE_ADJUSTED', createdAt: { gte: since } },
       select: { data: true },
     })
-
     const totalAdded = recentLogs.reduce((sum, log) => {
-      const data = log.data as Record<string, unknown> | null
-      return sum + ((data?.amount as number) ?? 0)
+      const d = log.data as Record<string, unknown> | null
+      return sum + ((d?.amount as number) ?? 0)
     }, 0)
 
     if (totalAdded + amount > DAILY_LIMIT) {
@@ -48,27 +38,22 @@ export async function POST(req: NextRequest) {
       }, { status: 429 })
     }
 
-    // Add NC atomically
     const updated = await db.user.update({
       where: { id: payload.userId },
       data: { neonCoins: { increment: amount } },
       select: { neonCoins: true },
     })
 
-    // Log the addition
     await db.auditLog.create({
       data: {
         userId: payload.userId,
         action: 'BALANCE_ADJUSTED',
         severity: 'INFO',
-        data: { amount, newBalance: updated.neonCoins, source: 'funding_modal' },
+        data: { amount, newBalance: updated.neonCoins, source: 'funding_modal' } as Prisma.InputJsonValue,
       },
     })
 
-    return NextResponse.json({
-      success: true,
-      data: { newNeonCoins: updated.neonCoins },
-    })
+    return NextResponse.json({ success: true, data: { newNeonCoins: updated.neonCoins } })
   } catch (err) {
     console.error('[balance/add-nc]', err)
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
