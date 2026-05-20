@@ -68,7 +68,7 @@ function GameRow({ game, isActive, isFav, onFavToggle, onClick }: GameRowProps) 
         </span>
 
         <div className="flex items-center gap-1.5">
-          <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded hidden group-hover:hidden', game.badgeColor, !hovered && 'flex')}>
+          <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded', game.badgeColor, hovered ? 'hidden' : 'flex')}>
             {game.badge}
           </span>
           <button
@@ -145,7 +145,7 @@ export function Sidebar() {
   const favoriteGames = favorites.map(id => ALL_GAMES.find(g => g.id === id)).filter(Boolean) as typeof ALL_GAMES
 
   return (
-    <aside className="hidden lg:flex flex-col w-60 flex-shrink-0 bg-[#0a0a14] border-r border-white/[0.05] sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
+    <aside className="hidden lg:flex flex-col w-60 flex-shrink-0 bg-[#0a0a14] border-r border-white/[0.05] h-full overflow-y-auto">
       {/* Ambient glow */}
       <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-purple-900/10 to-transparent pointer-events-none" />
 

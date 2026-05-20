@@ -12,6 +12,7 @@ import { formatCurrency, randomColor, getJackpotWinChance } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import type { JackpotEntry } from '@/types'
+import { fireWinCelebration } from '@/components/effects/CelebrationOverlay'
 
 const MOCK_ENTRIES: JackpotEntry[] = [
   { id: '1', userId: 'u1', betAmount: 100, ticketStart: 0, ticketEnd: 100, color: '#7c3aed', user: { username: 'degenKing', avatar: undefined } },
@@ -178,11 +179,13 @@ export function JackpotGame() {
         requestAnimationFrame(animate)
       } else {
         setJackpotSpinning(false)
+        const winAmount = poolAmount * 0.95
         setWinner({
           username: randomEntry.user?.username ?? 'Anonymous',
-          winAmount: poolAmount * 0.95,
+          winAmount,
           color: randomEntry.color,
         })
+        fireWinCelebration({ amount: winAmount })
       }
     }
     requestAnimationFrame(animate)

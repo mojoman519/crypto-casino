@@ -40,13 +40,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="dark">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
-          {/* Ambient particles — site-wide, behind all content */}
-          <AmbientParticles zIndex={1} />
-          {/* Win celebration burst — mounts once, listens globally */}
+          {/* Ambient particles — z-index 0, sits behind the z-index:10 UI wrapper */}
+          <AmbientParticles zIndex={0} />
+          {/* Win celebration burst — z-index 9999, above everything */}
           <CelebrationOverlay />
-          <div className="min-h-screen flex flex-col">
+          {/* relative + z-index:10 creates a stacking context above the particle canvas */}
+          <div className="relative z-10 min-h-screen flex flex-col">
             <Navbar />
-            <div className="flex flex-1 overflow-hidden">
+            {/* Fixed-height row: each column scrolls independently, no sticky needed */}
+            <div className="flex overflow-hidden" style={{ height: 'calc(100vh - 4rem)' }}>
               <Sidebar />
               <main className="flex-1 overflow-y-auto pb-20 lg:pb-0">
                 {children}

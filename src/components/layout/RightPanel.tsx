@@ -119,7 +119,7 @@ export function RightPanel() {
   }
 
   return (
-    <aside className="hidden xl:flex flex-col w-72 flex-shrink-0 bg-[#0a0a14] border-l border-white/[0.05] sticky top-16 h-[calc(100vh-4rem)]">
+    <aside className="hidden xl:flex flex-col w-72 flex-shrink-0 bg-[#0a0a14] border-l border-white/[0.05] h-full">
 
       {/* Tab header */}
       <div className="flex items-center border-b border-white/[0.05] px-1 pt-1">

@@ -7,6 +7,8 @@ interface Options {
   theme?: string
   density?: number
   enabled?: boolean
+  /** Set to 0 for celebration-only engines that shouldn't spawn ambient particles */
+  ambientCount?: number
 }
 
 export function useParticleEngine(
@@ -14,7 +16,7 @@ export function useParticleEngine(
   options: Options = {}
 ) {
   const engineRef = useRef<ParticleEngine | null>(null)
-  const { theme, enabled = true } = options
+  const { theme, enabled = true, ambientCount } = options
 
   // Initialize engine
   useEffect(() => {
@@ -24,7 +26,7 @@ export function useParticleEngine(
     const engine = new ParticleEngine()
     engineRef.current = engine
     engine.init(canvas, theme)
-    engine.start()
+    engine.start(ambientCount)
 
     // Mouse repulsion
     const onMouseMove = (e: MouseEvent) => engine.setMousePos(e.clientX, e.clientY)

@@ -50,8 +50,12 @@ export async function PATCH(req: NextRequest) {
     } else if (action === 'unban') {
       await db.user.update({ where: { id: userId }, data: { isBanned: false } })
     } else if (action === 'giveBalance') {
-      const { amount } = await req.json()
-      await db.user.update({ where: { id: userId }, data: { balance: { increment: amount } } })
+      const body = await req.json()
+      const amount = parseFloat(body.amount)
+      if (isNaN(amount) || amount <= 0 || amount > 1_000_000) {
+        return NextResponse.json({ success: false, error: 'Amount must be between 0 and 1,000,000' }, { status: 400 })
+      }
+      await db.user.update({ where: { id: userId }, data: { neonCoins: { increment: amount } } })
     }
 
     return NextResponse.json({ success: true })

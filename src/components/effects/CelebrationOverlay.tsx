@@ -21,7 +21,8 @@ export function fireWinCelebration(detail: WinCelebrationEvent) {
  */
 export function CelebrationOverlay() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const { celebrateAt } = useParticleEngine(canvasRef, { theme: 'neonDiamonds' })
+  // ambientCount: 0 — this canvas is celebration-only, no background particles
+  const { celebrateAt } = useParticleEngine(canvasRef, { theme: 'neonDiamonds', ambientCount: 0 })
 
   useEffect(() => {
     const handler = (e: Event) => {
