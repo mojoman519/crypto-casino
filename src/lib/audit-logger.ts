@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { db } from './db'
 
 export type AuditAction =
@@ -25,7 +26,7 @@ export function auditLog(params: LogParams): void {
       username: params.username ?? null,
       action: params.action,
       severity: params.severity ?? 'INFO',
-      data: params.data ?? {},
+      data: (params.data ?? {}) as Prisma.InputJsonValue,
       ipAddress: params.ipAddress ?? null,
     },
   }).catch(err => console.error('[audit-logger]', err))
@@ -38,7 +39,7 @@ export async function auditLogSync(params: LogParams): Promise<void> {
       username: params.username ?? null,
       action: params.action,
       severity: params.severity ?? 'INFO',
-      data: params.data ?? {},
+      data: (params.data ?? {}) as Prisma.InputJsonValue,
       ipAddress: params.ipAddress ?? null,
     },
   })
