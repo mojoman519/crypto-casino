@@ -10,14 +10,14 @@ import { useRecentlyPlayed } from '@/hooks/useRecentlyPlayed'
 import { cn } from '@/lib/utils'
 
 export const ALL_GAMES = [
-  { id: 'coinflip', name: 'Coin Flip', href: '/games/coinflip', icon: '🪙', badge: 'HOT', badgeColor: 'bg-orange-500/20 text-orange-400' },
-  { id: 'crash',   name: 'Crash',     href: '/games/crash',    icon: '🚀', badge: 'LIVE', badgeColor: 'bg-emerald-500/20 text-emerald-400' },
   { id: 'jackpot', name: 'Jackpot',   href: '/games/jackpot',  icon: '💎', badge: 'MEGA', badgeColor: 'bg-cyan-500/20 text-cyan-400' },
-  { id: 'roulette',name: 'Roulette',  href: '/games/roulette', icon: '🎡', badge: 'NEW',  badgeColor: 'bg-red-500/20 text-red-400' },
+  { id: 'roulette',name: 'Roulette',  href: '/games/roulette', icon: '🎡', badge: 'HOT',  badgeColor: 'bg-red-500/20 text-red-400' },
   { id: 'dice',    name: 'Dice',      href: '/games/dice',     icon: '🎲', badge: 'NEW',  badgeColor: 'bg-amber-500/20 text-amber-400' },
 ]
 
 const COMING_SOON = [
+  { id: 'coinflip',  name: 'Coin Flip', icon: '🪙' },
+  { id: 'crash',     name: 'Crash',     icon: '🚀' },
   { id: 'slots',     name: 'Slots',     icon: '🎰' },
   { id: 'blackjack', name: 'Blackjack', icon: '🃏' },
   { id: 'plinko',    name: 'Plinko',    icon: '🔮' },

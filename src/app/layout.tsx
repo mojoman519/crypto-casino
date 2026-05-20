@@ -11,6 +11,8 @@ import { DepositModal } from '@/components/wallet/DepositModal'
 import { WithdrawModal } from '@/components/wallet/WithdrawModal'
 import { AmbientParticles } from '@/components/effects/AmbientParticles'
 import { CelebrationOverlay } from '@/components/effects/CelebrationOverlay'
+import { TopNav } from '@/components/layout/TopNav'
+import { ZeroBalanceModal } from '@/components/shared/ZeroBalanceModal'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
@@ -50,13 +52,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {/* Fixed-height row: each column scrolls independently, no sticky needed */}
             <div className="flex overflow-hidden" style={{ height: 'calc(100vh - 4rem)' }}>
               <Sidebar />
-              <main className="flex-1 overflow-y-auto pb-20 lg:pb-0">
+              <main className="flex-1 overflow-y-auto pb-20 lg:pb-0 flex flex-col">
+                <TopNav />
                 {children}
               </main>
               <RightPanel />
             </div>
             <MobileNav />
           </div>
+          <ZeroBalanceModal />
           <WalletModal />
           <DepositModal />
           <WithdrawModal />

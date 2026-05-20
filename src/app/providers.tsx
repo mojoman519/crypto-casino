@@ -5,6 +5,22 @@ import { useState, useEffect, type ReactNode } from 'react'
 import { Toaster } from 'react-hot-toast'
 import { useAuthStore } from '@/store/authStore'
 import { useWalletStore } from '@/store/walletStore'
+import { audioManager } from '@/lib/audio-manager'
+
+// Initialise AudioManager and unlock on first user interaction
+function AudioInit() {
+  useEffect(() => {
+    audioManager.init()
+    const unlock = () => audioManager.unlock()
+    window.addEventListener('pointerdown', unlock, { once: true, passive: true })
+    window.addEventListener('keydown', unlock, { once: true, passive: true })
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+    }
+  }, [])
+  return null
+}
 
 function BalanceSyncer() {
   const userId = useAuthStore((s) => s.user?.id)
@@ -30,6 +46,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <AudioInit />
       <BalanceSyncer />
       {children}
       <Toaster

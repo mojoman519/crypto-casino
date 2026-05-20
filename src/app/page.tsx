@@ -9,32 +9,6 @@ import { useWalletStore } from '@/store/walletStore'
 
 const GAMES = [
   {
-    id: 'coinflip',
-    name: 'Coin Flip',
-    description: '50/50 shot at doubling your stack',
-    href: '/games/coinflip',
-    icon: '🪙',
-    multiplier: '2x',
-    gradient: 'from-violet-600/20 to-purple-600/20',
-    border: 'hover:border-violet-500/50',
-    glow: 'hover:shadow-[0_0_40px_rgba(139,92,246,0.2)]',
-    badge: 'HOT',
-    badgeColor: 'bg-orange-500/20 text-orange-400',
-  },
-  {
-    id: 'crash',
-    name: 'Crash',
-    description: 'Cash out before the rocket explodes',
-    href: '/games/crash',
-    icon: '🚀',
-    multiplier: '∞x',
-    gradient: 'from-pink-600/20 to-rose-600/20',
-    border: 'hover:border-pink-500/50',
-    glow: 'hover:shadow-[0_0_40px_rgba(236,72,153,0.2)]',
-    badge: 'LIVE',
-    badgeColor: 'bg-emerald-500/20 text-emerald-400',
-  },
-  {
     id: 'jackpot',
     name: 'Jackpot',
     description: 'Win the entire pool in one spin',

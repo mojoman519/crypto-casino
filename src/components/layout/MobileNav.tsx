@@ -7,11 +7,11 @@ import { Home } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
-  { href: '/',               icon: Home,  label: 'Home',     emoji: null },
-  { href: '/games/coinflip', icon: null,  label: 'Flip',     emoji: '🪙' },
-  { href: '/games/crash',    icon: null,  label: 'Crash',    emoji: '🚀' },
-  { href: '/games/jackpot',  icon: null,  label: 'Jackpot',  emoji: '💎' },
-  { href: '/games/dice',     icon: null,  label: 'Dice',     emoji: '🎲' },
+  { href: '/',                icon: Home, label: 'Home',     emoji: null },
+  { href: '/games/jackpot',   icon: null, label: 'Jackpot',  emoji: '💎' },
+  { href: '/games/roulette',  icon: null, label: 'Roulette', emoji: '🎡' },
+  { href: '/games/dice',      icon: null, label: 'Dice',     emoji: '🎲' },
+  { href: '/leaderboard',     icon: null, label: 'Top',      emoji: '🏆' },
 ]
 
 export function MobileNav() {

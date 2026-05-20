@@ -5,12 +5,13 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Zap, Wallet, ChevronDown, User, Trophy, LogOut,
-  LayoutDashboard, ArrowDownToLine, Menu, X,
+  LayoutDashboard, ArrowDownToLine, Menu, X, Plus,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useWalletStore } from '@/store/walletStore'
 import { formatAddress } from '@/lib/utils'
 import { AnimatedBalance } from '@/components/shared/AnimatedBalance'
+import { FundingModal } from '@/components/shared/FundingModal'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -19,8 +20,10 @@ export function Navbar() {
   const { openWalletModal, openDepositModal, openWithdrawModal, connectedWallet, NC, SOL } = useWalletStore()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [fundingOpen, setFundingOpen] = useState(false)
 
   return (
+    <>
     <header className="sticky top-0 z-40 w-full h-16 flex-shrink-0">
       <div className="absolute inset-0 bg-[#0a0a14]/90 backdrop-blur-xl border-b border-white/[0.05]" />
 
@@ -40,9 +43,18 @@ export function Navbar() {
         <div className="flex items-center gap-2 ml-auto">
           {user ? (
             <>
-              {/* NC balance */}
-              <div className="hidden sm:flex items-center px-3 py-2 rounded-xl glass-card border border-purple-500/20">
+              {/* NC balance + add funds button */}
+              <div className="hidden sm:flex items-center gap-1 px-2 py-1.5 rounded-xl glass-card border border-purple-500/20">
                 <AnimatedBalance currency="NC" balance={NC} size="sm" />
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setFundingOpen(true)}
+                  className="ml-1 w-5 h-5 rounded-full flex items-center justify-center bg-purple-500/30 hover:bg-purple-500/50 transition-colors"
+                  title="Add Neon Coins"
+                >
+                  <Plus className="w-3 h-3 text-purple-300" />
+                </motion.button>
               </div>
 
               {/* SOL balance + add */}
@@ -176,5 +188,8 @@ export function Navbar() {
         )}
       </AnimatePresence>
     </header>
+
+    <FundingModal open={fundingOpen} onClose={() => setFundingOpen(false)} />
+  </>
   )
 }
