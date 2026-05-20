@@ -11,7 +11,7 @@ import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
-type View = 'choose' | 'demo-setup' | 'sol-connect' | 'email'
+type View = 'choose' | 'demo-setup' | 'sol-connect' | 'email' | 'admin-otp'
 type AuthMode = 'login' | 'register'
 
 const NEON_PRESETS = [1_000, 10_000, 100_000, 1_000_000]
@@ -35,6 +35,10 @@ export function WalletModal() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [email, setEmail] = useState('')
+
+  // Admin OTP state
+  const [adminUserId, setAdminUserId] = useState('')
+  const [otpCode, setOtpCode] = useState('')
 
   const handleClose = () => {
     closeWalletModal()
@@ -162,9 +166,18 @@ export function WalletModal() {
       const body = authMode === 'register'
         ? { username, password, email, neonCoins: 10_000 }
         : { username, password }
-      const { data } = await callAuth(endpoint, body)
-      login(data.user, data.token)
-      if (authMode === 'register' && data.emailSent) {
+      const res = await callAuth(endpoint, body)
+
+      // Admin login requires email OTP
+      if (res.requiresOtp) {
+        setAdminUserId(res.userId)
+        setView('admin-otp')
+        toast.success('Verification code sent to your email')
+        return
+      }
+
+      login(res.data.user, res.data.token)
+      if (authMode === 'register' && res.data.emailSent) {
         toast.success('Account created! Check your email to verify.', { duration: 6000 })
       } else {
         toast.success(authMode === 'register' ? '🎉 Account created! 10,000 Neon Coins added.' : 'Welcome back!')
@@ -172,6 +185,23 @@ export function WalletModal() {
       handleClose()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Authentication failed')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // ─── Admin OTP verification ─────────────────────────────────────────────────
+  const handleOtpVerify = async () => {
+    if (!otpCode || otpCode.length !== 6) { setError('Enter the 6-digit code from your email'); return }
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await callAuth('/api/auth/admin-otp', { userId: adminUserId, code: otpCode })
+      login(res.data.user, res.data.token)
+      toast.success('Admin access granted')
+      handleClose()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Invalid code')
     } finally {
       setIsLoading(false)
     }
@@ -193,6 +223,7 @@ export function WalletModal() {
                 {view === 'demo-setup' && 'Choose Your Neon Coins'}
                 {view === 'sol-connect' && 'Connect Phantom Wallet'}
                 {view === 'email' && (authMode === 'login' ? 'Sign In' : 'Create Account')}
+                {view === 'admin-otp' && 'Admin Verification'}
               </DialogTitle>
             </div>
             <p className="text-xs text-white/40 pl-[52px]">
@@ -200,6 +231,7 @@ export function WalletModal() {
               {view === 'demo-setup' && 'Neon Coins have no real value — just for fun'}
               {view === 'sol-connect' && 'Your Phantom wallet will open to confirm'}
               {view === 'email' && 'Classic username & password'}
+              {view === 'admin-otp' && 'Check your email for a 6-digit code'}
             </p>
           </DialogHeader>
 
@@ -394,6 +426,42 @@ export function WalletModal() {
                     {authMode === 'login' ? 'Create account →' : 'Sign in instead →'}
                   </button>
                 </div>
+              </motion.div>
+            )}
+
+            {/* ── ADMIN OTP ── */}
+            {view === 'admin-otp' && (
+              <motion.div key="admin-otp" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
+                <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 text-sm text-white/60">
+                  A 6-digit verification code was sent to your admin email. It expires in 10 minutes.
+                </div>
+                <Input
+                  placeholder="Enter 6-digit code"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onKeyDown={(e) => e.key === 'Enter' && handleOtpVerify()}
+                  className="text-center text-2xl font-black tracking-[0.3em]"
+                  maxLength={6}
+                />
+
+                {error && (
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {error}
+                  </div>
+                )}
+
+                <Button variant="neon" className="w-full h-12" onClick={handleOtpVerify} disabled={isLoading || otpCode.length !== 6}>
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  Verify &amp; Sign In
+                </Button>
+
+                <button
+                  onClick={() => { setView('email'); setOtpCode(''); setError(null) }}
+                  className="text-sm text-white/30 hover:text-white w-full text-center transition-colors"
+                >
+                  ← Back to login
+                </button>
               </motion.div>
             )}
 

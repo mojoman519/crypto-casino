@@ -79,6 +79,44 @@ export async function sendVerificationEmail(
   }
 }
 
+export async function sendAdminOtp(code: string): Promise<boolean> {
+  if (!RESEND_API_KEY) {
+    console.warn('[email] RESEND_API_KEY not set — OTP not sent')
+    return false
+  }
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM_EMAIL,
+        to: process.env.ADMIN_EMAIL!,
+        subject: `NeonBet admin login code: ${code}`,
+        html: `
+<body style="background:#050508;color:#f8fafc;font-family:system-ui,sans-serif;padding:40px 20px;">
+  <div style="max-width:400px;margin:0 auto;background:rgba(255,255,255,0.03);border:1px solid rgba(124,58,237,0.4);border-radius:16px;padding:32px;text-align:center;">
+    <h2 style="margin:0 0 4px;color:#a855f7;">NeonBet Casino</h2>
+    <p style="margin:0 0 28px;color:rgba(248,250,252,0.4);font-size:13px;">Admin Login Verification</p>
+    <div style="background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.4);border-radius:12px;padding:24px;">
+      <p style="margin:0 0 8px;font-size:12px;color:#94a3b8;letter-spacing:0.1em;text-transform:uppercase;">One-Time Code</p>
+      <p style="margin:0;font-size:44px;font-weight:900;letter-spacing:0.2em;color:#ffffff;">${code}</p>
+    </div>
+    <p style="margin:24px 0 0;font-size:13px;color:#64748b;">Expires in <strong style="color:#f8fafc;">10 minutes</strong>. Never share this code.</p>
+    <p style="margin:8px 0 0;font-size:12px;color:#475569;">If you did not request this, your password may be compromised.</p>
+  </div>
+</body>`,
+      }),
+    })
+    return res.ok
+  } catch (err) {
+    console.error('[email] Failed to send admin OTP:', err)
+    return false
+  }
+}
+
 export async function sendPasswordResetEmail(
   toEmail: string,
   username: string,

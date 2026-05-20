@@ -81,6 +81,7 @@ model User {
   achievements     UserAchievement[]
   unlockedThemes   UserTheme[]
   gameTransactions GameTransaction[]
+  adminOtp         AdminOtp?
 
   @@index([username])
   @@index([referralCode])
@@ -380,4 +381,15 @@ model AuditLog {
   @@index([action])
   @@index([severity])
   @@index([createdAt])
+}
+
+model AdminOtp {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
