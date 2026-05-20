@@ -37,7 +37,8 @@ export async function PATCH(req: NextRequest) {
   const safe = Object.fromEntries(Object.entries(updates).filter(([k]) => allowed[k]))
 
   // Validate ranges
-  if (safe.houseEdge != null && (safe.houseEdge < 0 || safe.houseEdge > 0.5)) {
+  const he = safe.houseEdge as number | null | undefined
+  if (he != null && (he < 0 || he > 0.5)) {
     return NextResponse.json({ success: false, error: 'House edge must be 0–50%' }, { status: 400 })
   }
 
