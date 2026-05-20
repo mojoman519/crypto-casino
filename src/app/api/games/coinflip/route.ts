@@ -1,111 +1,94 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
-import {
-  generateServerSeed, hashServerSeed, generateClientSeed,
-  generateNonce, generateCoinflipResult,
-} from '@/lib/provably-fair'
-
-const HOUSE_EDGE = parseFloat(process.env.HOUSE_EDGE || '0.03')
-const MIN_BET = 0.01
-const MAX_BET = 10_000
+import { generateServerSeed, hashServerSeed, generateClientSeed, generateNonce, generateCoinflipResult } from '@/lib/provably-fair'
+import { validateBet, getIp } from '@/lib/bet-validator'
+import { beginBet, resolveBet, rollbackBet } from '@/lib/transaction-service'
 
 export async function POST(req: NextRequest) {
+  const authHeader = req.headers.get('Authorization')
+  const token = authHeader?.replace('Bearer ', '') || req.cookies.get('casino_token')?.value
+  if (!token) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+
+  const payload = verifyToken(token)
+  if (!payload) return NextResponse.json({ success: false, error: 'Invalid token' }, { status: 401 })
+
+  const ip = getIp(req)
+
   try {
-    const authHeader = req.headers.get('Authorization')
-    const token = authHeader?.replace('Bearer ', '') || req.cookies.get('casino_token')?.value
-
-    if (!token) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-
-    const payload = verifyToken(token)
-    if (!payload) return NextResponse.json({ success: false, error: 'Invalid token' }, { status: 401 })
-
-    const { betAmount, choice, mode = 'real' } = await req.json()
+    const body = await req.json()
+    const { choice, mode = 'neon' } = body
 
     if (!['heads', 'tails'].includes(choice)) {
-      return NextResponse.json({ success: false, error: 'Invalid choice' }, { status: 400 })
+      return NextResponse.json({ success: false, error: 'Choice must be heads or tails' }, { status: 400 })
     }
 
-    if (typeof betAmount !== 'number' || betAmount < MIN_BET || betAmount > MAX_BET) {
-      return NextResponse.json({ success: false, error: `Bet must be between $${MIN_BET} and $${MAX_BET}` }, { status: 400 })
-    }
+    // Validate bet against DB config (min/max/rate limit/fraud)
+    const { config, currency, betAmount } = await validateBet({
+      userId: payload.userId,
+      username: payload.username,
+      gameType: 'COINFLIP',
+      betAmount: body.betAmount,
+      mode,
+      ipAddress: ip,
+    })
 
-    const user = await db.user.findUnique({ where: { id: payload.userId } })
-    if (!user) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
-    if (user.isBanned) return NextResponse.json({ success: false, error: 'Account suspended' }, { status: 403 })
-
-    const isNeonMode = mode === 'neon'
-    const currentBalance = isNeonMode ? user.neonCoins : user.balance
-    if (currentBalance < betAmount) {
-      return NextResponse.json({
-        success: false,
-        error: isNeonMode ? 'Not enough Neon Coins' : 'Insufficient balance'
-      }, { status: 400 })
-    }
-
-    // Generate provably fair result
+    // Generate provably fair seeds
     const serverSeed = generateServerSeed()
     const serverSeedHash = hashServerSeed(serverSeed)
     const clientSeed = generateClientSeed()
     const nonce = generateNonce()
-    const result = generateCoinflipResult(serverSeed, clientSeed, nonce)
 
-    const won = result === choice
-    const winAmount = won ? betAmount * 2 * (1 - HOUSE_EDGE) : 0
-    const balanceDelta = won ? winAmount - betAmount : -betAmount
+    // Atomically deduct balance and open ledger entry
+    const { txId, signature } = await beginBet({
+      userId: payload.userId,
+      username: payload.username,
+      gameType: 'COINFLIP',
+      currency,
+      betAmount,
+      serverSeed,
+      serverSeedHash,
+      clientSeed,
+      nonce,
+      ipAddress: ip,
+    })
 
-    const balanceUpdate = isNeonMode
-      ? { neonCoins: user.neonCoins + balanceDelta }
-      : { balance: user.balance + balanceDelta }
+    try {
+      const result = generateCoinflipResult(serverSeed, clientSeed, nonce)
+      const won = result === choice
+      const winAmount = won ? betAmount * 2 * (1 - config.houseEdge) : 0
 
-    const [game, updatedUser] = await db.$transaction([
-      db.coinflipGame.create({
-        data: {
-          userId: user.id,
-          betAmount,
-          choice,
-          result,
-          winAmount,
-          multiplier: 2 * (1 - HOUSE_EDGE),
-          serverSeed,
-          clientSeed,
-          nonce,
-          hashResult: serverSeedHash,
-          status: 'COMPLETED',
-        },
-      }),
-      db.user.update({
-        where: { id: user.id },
-        data: {
-          ...balanceUpdate,
-          totalWagered: { increment: betAmount },
-          totalWon: won ? { increment: winAmount } : undefined,
-          totalLost: won ? undefined : { increment: betAmount },
-          gamesPlayed: { increment: 1 },
-        },
-      }),
-    ])
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        gameId: game.id,
-        result,
+      const { newBalance, newNeonCoins, txSignature } = await resolveBet({
+        txId,
+        userId: payload.userId,
+        username: payload.username,
+        currency,
         won,
         winAmount,
-        betAmount,
-        mode,
-        newBalance: updatedUser.balance,
-        newNeonCoins: updatedUser.neonCoins,
-        serverSeedHash,
-        clientSeed,
-        nonce,
-        serverSeed,
-      },
-    })
+        outcome: { result, choice, multiplier: 2 * (1 - config.houseEdge) },
+        ipAddress: ip,
+      })
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          result, won, winAmount, betAmount, mode,
+          newBalance,
+          newNeonCoins,
+          serverSeedHash, clientSeed, nonce, serverSeed,
+          txId,
+          signature: txSignature,
+        },
+      })
+    } catch (gameErr) {
+      await rollbackBet({ txId, userId: payload.userId, username: payload.username, currency, reason: String(gameErr), ipAddress: ip })
+      throw gameErr
+    }
   } catch (err) {
-    console.error('[games/coinflip]', err)
-    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
+    const msg = err instanceof Error ? err.message : 'Internal server error'
+    const status = msg.includes('Rate limit') ? 429 : msg.includes('Insufficient') ? 400 : msg.includes('disabled') ? 503 : 500
+    if (status === 500) console.error('[coinflip]', err)
+    return NextResponse.json({ success: false, error: msg }, { status })
   }
 }
 
@@ -117,8 +100,7 @@ export async function GET(req: NextRequest) {
   const payload = verifyToken(token)
   if (!payload) return NextResponse.json({ success: false, error: 'Invalid token' }, { status: 401 })
 
-  const { searchParams } = new URL(req.url)
-  const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100)
+  const limit = Math.min(parseInt(new URL(req.url).searchParams.get('limit') || '20'), 100)
 
   const games = await db.coinflipGame.findMany({
     where: { userId: payload.userId },

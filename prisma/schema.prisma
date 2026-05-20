@@ -80,6 +80,7 @@ model User {
   profile          UserProfile?
   achievements     UserAchievement[]
   unlockedThemes   UserTheme[]
+  gameTransactions GameTransaction[]
 
   @@index([username])
   @@index([referralCode])
@@ -316,4 +317,67 @@ model UserTheme {
 
   @@unique([userId, themeId])
   @@index([userId])
+}
+
+// ─── Casino Operations ────────────────────────────────────────────────────────
+
+model GameConfig {
+  id              String   @id @default(cuid())
+  gameType        String   @unique   // COINFLIP | CRASH | DICE | ROULETTE | JACKPOT
+  name            String
+  isEnabled       Boolean  @default(true)
+  houseEdge       Float    @default(0.03)
+  minBetNC        Float    @default(10)
+  maxBetNC        Float    @default(1000000)
+  minBetSOL       Float    @default(0.001)
+  maxBetSOL       Float    @default(100)
+  maxBetsPerMin   Int      @default(20)
+  maxBetsPerHour  Int      @default(300)
+  updatedAt       DateTime @updatedAt
+  updatedBy       String?
+}
+
+model GameTransaction {
+  id              String    @id @default(cuid())
+  userId          String
+  gameType        String
+  currency        String    // NC | SOL
+  betAmount       Float
+  winAmount       Float     @default(0)
+  netAmount       Float     @default(0)
+  status          String    @default("PENDING")  // PENDING | WON | LOST | ROLLED_BACK
+  signature       String
+  serverSeed      String?
+  serverSeedHash  String?
+  clientSeed      String?
+  nonce           Int?
+  outcome         Json?
+  ipAddress       String?
+  rollbackReason  String?
+  createdAt       DateTime  @default(now())
+  resolvedAt      DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([gameType])
+  @@index([currency])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  username  String?
+  action    String   // BET_PLACED | BET_WON | BET_LOST | RATE_LIMITED | FRAUD_DETECTED | ROLLBACK | USER_BANNED
+  severity  String   @default("INFO")  // INFO | WARN | ALERT
+  data      Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([severity])
+  @@index([createdAt])
 }

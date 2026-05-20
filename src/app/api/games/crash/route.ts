@@ -1,71 +1,95 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
+import { generateServerSeed, hashServerSeed } from '@/lib/provably-fair'
+import { validateBet, getIp } from '@/lib/bet-validator'
+import { beginBet } from '@/lib/transaction-service'
 
 export async function POST(req: NextRequest) {
+  const authHeader = req.headers.get('Authorization')
+  const token = authHeader?.replace('Bearer ', '') || req.cookies.get('casino_token')?.value
+  if (!token) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+
+  const payload = verifyToken(token)
+  if (!payload) return NextResponse.json({ success: false, error: 'Invalid token' }, { status: 401 })
+
+  const ip = getIp(req)
+
   try {
-    const authHeader = req.headers.get('Authorization')
-    const token = authHeader?.replace('Bearer ', '') || req.cookies.get('casino_token')?.value
-    if (!token) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    const body = await req.json()
+    const { autoCashout, mode = 'neon' } = body
 
-    const payload = verifyToken(token)
-    if (!payload) return NextResponse.json({ success: false, error: 'Invalid token' }, { status: 401 })
+    const { config, currency, betAmount } = await validateBet({
+      userId: payload.userId,
+      username: payload.username,
+      gameType: 'CRASH',
+      betAmount: body.betAmount,
+      mode,
+      ipAddress: ip,
+    })
 
-    const { betAmount, autoCashout } = await req.json()
-
-    if (typeof betAmount !== 'number' || betAmount <= 0 || betAmount > 50_000) {
-      return NextResponse.json({ success: false, error: 'Invalid bet amount' }, { status: 400 })
-    }
-
-    const user = await db.user.findUnique({ where: { id: payload.userId } })
-    if (!user) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
-    if (user.balance < betAmount) return NextResponse.json({ success: false, error: 'Insufficient balance' }, { status: 400 })
-
-    // Get or create active crash round
-    let round = await db.crashRound.findFirst({
+    // Check active crash round
+    const round = await db.crashRound.findFirst({
       where: { status: 'ACTIVE' },
       orderBy: { startedAt: 'desc' },
     })
-
     if (!round) {
-      return NextResponse.json({ success: false, error: 'No active round' }, { status: 409 })
+      return NextResponse.json({ success: false, error: 'No active crash round' }, { status: 409 })
     }
 
-    // Check if user already has an active bet in this round
-    const existingBet = await db.crashBet.findFirst({
-      where: { userId: user.id, crashRoundId: round.id, status: 'ACTIVE' },
+    // One bet per round
+    const existing = await db.crashBet.findFirst({
+      where: { userId: payload.userId, crashRoundId: round.id, status: 'ACTIVE' },
+    })
+    if (existing) {
+      return NextResponse.json({ success: false, error: 'Already bet this round' }, { status: 409 })
+    }
+
+    // Open ledger entry and deduct balance
+    const serverSeed = generateServerSeed()
+    const { txId, signature } = await beginBet({
+      userId: payload.userId,
+      username: payload.username,
+      gameType: 'CRASH',
+      currency,
+      betAmount,
+      serverSeed,
+      serverSeedHash: hashServerSeed(serverSeed),
+      clientSeed: round.serverSeed,
+      nonce: 0,
+      ipAddress: ip,
     })
 
-    if (existingBet) {
-      return NextResponse.json({ success: false, error: 'Already placed a bet this round' }, { status: 409 })
-    }
-
+    // Create the crash bet entry (resolved later by socket cashout/crash)
     const [bet, updatedUser] = await db.$transaction([
       db.crashBet.create({
         data: {
-          userId: user.id,
+          userId: payload.userId,
           crashRoundId: round.id,
           betAmount,
           autoCashout: autoCashout ?? null,
           status: 'ACTIVE',
         },
       }),
-      db.user.update({
-        where: { id: user.id },
-        data: {
-          balance: { decrement: betAmount },
-          totalWagered: { increment: betAmount },
-          gamesPlayed: { increment: 1 },
-        },
-      }),
+      db.user.findUnique({ where: { id: payload.userId } }),
     ])
+
+    void config // used for rate limit / fraud only (balance deducted above)
 
     return NextResponse.json({
       success: true,
-      data: { bet, newBalance: updatedUser.balance },
+      data: {
+        bet,
+        txId,
+        signature,
+        newBalance: updatedUser?.balance ?? 0,
+        newNeonCoins: updatedUser?.neonCoins ?? 0,
+      },
     })
   } catch (err) {
-    console.error('[games/crash]', err)
-    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
+    const msg = err instanceof Error ? err.message : 'Internal server error'
+    const status = msg.includes('Rate limit') ? 429 : msg.includes('Insufficient') ? 400 : msg.includes('disabled') ? 503 : 500
+    if (status === 500) console.error('[crash]', err)
+    return NextResponse.json({ success: false, error: msg }, { status })
   }
 }
