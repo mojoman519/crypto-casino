@@ -32,5 +32,7 @@ export function useSounds() {
     playClick:        () => play('click'),
     playModalOpen:    () => play('modalOpen'),
     playModalClose:   () => play('modalClose'),
+    playBet:          () => play('click'),
+    playJackpotSpin:  () => play('jackpotSpin'),
   }
 }
