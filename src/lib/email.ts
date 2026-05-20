@@ -92,7 +92,7 @@ export async function sendAdminOtp(code: string): Promise<boolean> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: FROM_EMAIL,
+        from: 'NeonBet Casino <onboarding@resend.dev>',
         to: process.env.ADMIN_EMAIL!,
         subject: `NeonBet admin login code: ${code}`,
         html: `
