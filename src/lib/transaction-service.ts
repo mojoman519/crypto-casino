@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { Prisma } from '@prisma/client'
 import { db } from './db'
 import { auditLog } from './audit-logger'
 
@@ -154,7 +155,7 @@ export async function resolveBet(params: {
           status: params.won ? 'WON' : 'LOST',
           winAmount: params.winAmount,
           netAmount,
-          outcome: params.outcome,
+          outcome: params.outcome as Prisma.InputJsonValue,
           resolvedAt: new Date(),
         },
       }),
