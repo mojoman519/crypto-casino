@@ -9,6 +9,8 @@ import { MobileNav } from '@/components/layout/MobileNav'
 import { WalletModal } from '@/components/wallet/WalletModal'
 import { DepositModal } from '@/components/wallet/DepositModal'
 import { WithdrawModal } from '@/components/wallet/WithdrawModal'
+import { AmbientParticles } from '@/components/effects/AmbientParticles'
+import { CelebrationOverlay } from '@/components/effects/CelebrationOverlay'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
@@ -38,6 +40,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="dark">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
+          {/* Ambient particles — site-wide, behind all content */}
+          <AmbientParticles zIndex={1} />
+          {/* Win celebration burst — mounts once, listens globally */}
+          <CelebrationOverlay />
           <div className="min-h-screen flex flex-col">
             <Navbar />
             <div className="flex flex-1 overflow-hidden">

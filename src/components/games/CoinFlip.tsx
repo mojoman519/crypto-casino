@@ -14,6 +14,7 @@ import { formatBalance } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import type { Currency } from '@/types/transactions'
+import { fireWinCelebration } from '@/components/effects/CelebrationOverlay'
 
 type Choice = 'heads' | 'tails'
 type GamePhase = 'idle' | 'flipping' | 'result'
@@ -81,6 +82,7 @@ export function CoinFlip() {
 
       if (gameResult.won) {
         toast.success(`🎉 Won ${formatBalance(gameResult.winAmount, currency)}!`, { duration: 4000 })
+        fireWinCelebration({ amount: gameResult.winAmount })
       } else {
         toast.error(`💸 Lost ${formatBalance(parsedBet, currency)}`, { duration: 3000 })
       }

@@ -10,6 +10,7 @@ import { useBalance } from '@/hooks/useBalance'
 import { useGameLock } from '@/hooks/useGameLock'
 import { useSounds } from '@/hooks/useSounds'
 import { getAuthToken } from '@/lib/token'
+import { fireWinCelebration } from '@/components/effects/CelebrationOverlay'
 import { formatMultiplier } from '@/lib/utils'
 import { formatBalance } from '@/lib/currency'
 import { PlayModeToggle } from '@/components/shared/PlayModeToggle'
@@ -281,6 +282,7 @@ export const CrashGame = memo(function CrashGame() {
 
     const winAmount = myBetRef.current.amount * mult * 0.97
     toast.success(`🚀 Cashed out at ${formatMultiplier(mult)}! +${formatBalance(winAmount, currency)}`, { duration: 5000 })
+    fireWinCelebration({ amount: winAmount })
 
     try {
       await fetch('/api/games/crash/cashout', {

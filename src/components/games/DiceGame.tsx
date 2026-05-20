@@ -10,6 +10,7 @@ import { useBalance } from '@/hooks/useBalance'
 import { useGameLock } from '@/hooks/useGameLock'
 import { useSounds } from '@/hooks/useSounds'
 import { getAuthToken } from '@/lib/token'
+import { fireWinCelebration } from '@/components/effects/CelebrationOverlay'
 import { formatBalance } from '@/lib/currency'
 import { PlayModeToggle } from '@/components/shared/PlayModeToggle'
 import { AnimatedBalance } from '@/components/shared/AnimatedBalance'
@@ -106,6 +107,7 @@ export const DiceGame = memo(function DiceGame() {
         if (gameResult.won) {
           sounds.playWin()
           toast.success(`🎲 Rolled ${roll}! Won ${formatBalance(gameResult.winAmount, currency)}!`, { duration: 4000 })
+          fireWinCelebration({ amount: gameResult.winAmount })
         } else {
           sounds.playLose()
           toast.error(`🎲 Rolled ${roll} — Lost ${formatBalance(parsedBet, currency)}`)

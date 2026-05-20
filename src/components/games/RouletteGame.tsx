@@ -10,6 +10,7 @@ import { useBalance } from '@/hooks/useBalance'
 import { useGameLock } from '@/hooks/useGameLock'
 import { useSounds } from '@/hooks/useSounds'
 import { getAuthToken } from '@/lib/token'
+import { fireWinCelebration } from '@/components/effects/CelebrationOverlay'
 import { formatBalance } from '@/lib/currency'
 import { PlayModeToggle } from '@/components/shared/PlayModeToggle'
 import { AnimatedBalance } from '@/components/shared/AnimatedBalance'
@@ -112,6 +113,7 @@ export const RouletteGame = memo(function RouletteGame() {
         if (gameResult.won) {
           sounds.playWin()
           toast.success(`🎉 ${outcomeResult.toUpperCase()}! Won ${formatBalance(gameResult.winAmount, currency)}!`, { duration: 5000 })
+          fireWinCelebration({ amount: gameResult.winAmount })
         } else {
           sounds.playLose()
           toast.error(`${outcomeResult.toUpperCase()} — Lost ${formatBalance(parsedBet, currency)}`)
