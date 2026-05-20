@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { hashPassword } from '@/lib/auth'
 import { auditLog } from '@/lib/audit-logger'
 
-const ADMIN_USERNAME = 'GORILLA_ADMIN'
+const ADMIN_USERNAME = 'gorilla_admin'
 const HOUSE_WALLET_SOL = process.env.NEXT_PUBLIC_HOUSE_WALLET_SOL
 
 // One-time admin account creation.
