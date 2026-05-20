@@ -3,6 +3,9 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
 import { Navbar } from '@/components/layout/Navbar'
+import { Sidebar } from '@/components/layout/Sidebar'
+import { RightPanel } from '@/components/layout/RightPanel'
+import { MobileNav } from '@/components/layout/MobileNav'
 import { WalletModal } from '@/components/wallet/WalletModal'
 import { DepositModal } from '@/components/wallet/DepositModal'
 import { WithdrawModal } from '@/components/wallet/WithdrawModal'
@@ -37,7 +40,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <div className="min-h-screen flex flex-col">
             <Navbar />
-            <main className="flex-1">{children}</main>
+            <div className="flex flex-1 overflow-hidden">
+              <Sidebar />
+              <main className="flex-1 overflow-y-auto pb-20 lg:pb-0">
+                {children}
+              </main>
+              <RightPanel />
+            </div>
+            <MobileNav />
           </div>
           <WalletModal />
           <DepositModal />
