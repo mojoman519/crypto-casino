@@ -76,9 +76,12 @@ export async function GET(req: NextRequest) {
   // House edge analysis per game
   const houseProfit = -(revenueToday._sum.netAmount ?? 0)
 
+  const houseWallet = process.env.NEXT_PUBLIC_HOUSE_WALLET_SOL ?? null
+
   return NextResponse.json({
     success: true,
     data: {
+      houseWallet,
       overview: {
         totalUsers,
         newUsersToday,

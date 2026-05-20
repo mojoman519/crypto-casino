@@ -20,6 +20,7 @@ interface GameConfig {
   minBetSOL: number; maxBetSOL: number; maxBetsPerMin: number; maxBetsPerHour: number
 }
 interface StatsData {
+  houseWallet: string | null
   overview: {
     totalUsers: number; newUsersToday: number; totalBetsToday: number; totalBets24h: number
     houseProfit: { today: number; last24h: number; last7d: number }
@@ -206,6 +207,25 @@ export default function AdminPage() {
               )}
             </div>
           )}
+
+          {/* House wallet */}
+          <div className="glass-card p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-xl">◎</div>
+              <div>
+                <div className="text-xs text-white/30 uppercase tracking-widest mb-0.5">House Wallet (SOL)</div>
+                {stats.houseWallet
+                  ? <div className="font-mono text-sm text-emerald-400">{stats.houseWallet}</div>
+                  : <div className="text-sm text-red-400">Not configured — add NEXT_PUBLIC_HOUSE_WALLET_SOL to Vercel</div>}
+              </div>
+            </div>
+            {stats.houseWallet && (
+              <a href={`https://solscan.io/account/${stats.houseWallet}`} target="_blank" rel="noreferrer"
+                className="text-xs text-white/30 hover:text-white/60 transition-colors">
+                View on Solscan →
+              </a>
+            )}
+          </div>
 
           <div className="glass-card p-5">
             <h2 className="font-bold text-white mb-4">Volume per Game (last 24h)</h2>
