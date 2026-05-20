@@ -49,11 +49,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {/* relative + z-index:10 creates a stacking context above the particle canvas */}
           <div className="relative z-10 min-h-screen flex flex-col">
             <Navbar />
-            {/* Fixed-height row: each column scrolls independently, no sticky needed */}
-            <div className="flex overflow-hidden" style={{ height: 'calc(100vh - 4rem)' }}>
+            {/* TopNav sits between Navbar and content — always visible, never inside a scroll container */}
+            <TopNav />
+            {/* flex-1 fills remaining viewport height automatically */}
+            <div className="flex flex-1 overflow-hidden">
               <Sidebar />
-              <main className="flex-1 overflow-y-auto pb-20 lg:pb-0 flex flex-col">
-                <TopNav />
+              <main className="flex-1 overflow-y-auto pb-20 lg:pb-0">
                 {children}
               </main>
               <RightPanel />

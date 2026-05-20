@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Zap, Wallet, Copy, Check, ArrowRight, ChevronRight } from 'lucide-react'
+import { X, Zap, Wallet, Copy, Check, ArrowRight, Loader2 } from 'lucide-react'
 import { useWalletStore } from '@/store/walletStore'
 import { useAuthStore } from '@/store/authStore'
+import { getAuthToken } from '@/lib/token'
 import { AnimatedBalance } from '@/components/shared/AnimatedBalance'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -23,11 +24,34 @@ type Tab = 'neon' | 'crypto'
 
 export function FundingModal({ open, onClose, urgentMode = false }: Props) {
   const { user } = useAuthStore()
-  const { NC, SOL, openDepositModal } = useWalletStore()
+  const { NC, SOL, openDepositModal, setBalance } = useWalletStore()
   const [tab, setTab] = useState<Tab>('neon')
   const [copied, setCopied] = useState(false)
+  const [loadingAmount, setLoadingAmount] = useState<number | null>(null)
 
   const houseWallet = process.env.NEXT_PUBLIC_HOUSE_WALLET_SOL
+
+  const addNC = async (amount: number) => {
+    if (!user || loadingAmount) return
+    setLoadingAmount(amount)
+    try {
+      const res = await fetch('/api/balance/add-nc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+        body: JSON.stringify({ amount }),
+      })
+      const { success, data, error } = await res.json()
+      if (!success) throw new Error(error)
+      // Instantly sync wallet store — no page reload needed
+      setBalance('NC', data.newNeonCoins)
+      toast.success(`🎮 +${amount.toLocaleString()} Neon Coins added!`)
+      if (urgentMode) onClose()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to add NC')
+    } finally {
+      setLoadingAmount(null)
+    }
+  }
 
   const copyWallet = () => {
     if (!houseWallet) return
@@ -157,20 +181,24 @@ export function FundingModal({ open, onClose, urgentMode = false }: Props) {
                       {NC_PRESETS.map(amount => (
                         <button
                           key={amount}
-                          onClick={() => {
-                            toast.success(`🎮 ${amount.toLocaleString()} Neon Coins — use the register form to start fresh!`)
-                          }}
-                          className="py-3 px-4 rounded-xl bg-purple-600/15 border border-purple-500/20 hover:bg-purple-600/25 hover:border-purple-500/40 transition-all text-left group"
+                          onClick={() => addNC(amount)}
+                          disabled={!!loadingAmount}
+                          className="py-3 px-4 rounded-xl bg-purple-600/15 border border-purple-500/20 hover:bg-purple-600/25 hover:border-purple-500/40 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
                         >
+                          {loadingAmount === amount && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-purple-900/40">
+                              <Loader2 className="w-4 h-4 animate-spin text-purple-300" />
+                            </div>
+                          )}
                           <div className="text-sm font-black text-white group-hover:text-purple-200 transition-colors">
-                            {amount >= 1_000_000 ? `${amount / 1_000_000}M` : `${amount / 1_000}K`}
+                            +{amount >= 1_000_000 ? `${amount / 1_000_000}M` : `${amount / 1_000}K`}
                           </div>
                           <div className="text-[11px] text-white/30">Neon Coins</div>
                         </button>
                       ))}
                     </div>
                     <p className="text-[11px] text-white/20">
-                      To add more Neon Coins, create a new account with your preferred starting balance.
+                      Up to 1.1M NC can be added per day. NC are demo credits with no real value.
                     </p>
                   </motion.div>
                 )}
