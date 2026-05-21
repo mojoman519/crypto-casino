@@ -1,10 +1,7 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect, Suspense } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
-import { EffectComposer, Bloom } from '@react-three/postprocessing'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import * as THREE from 'three'
 import { useGameBet } from '@/hooks/useGameBet'
 import { BettingPanel } from '@/components/game-engine/BettingPanel'
 import { GameLayout } from '@/components/game-engine/GameLayout'
@@ -28,364 +25,277 @@ interface ActiveGame {
   hitMine?: number
 }
 
-// ─── R3F Atmosphere (background only, no interaction) ─────────────────────────
-function AtmosphereOrb({ position, color, speed }: { position: [number,number,number]; color: string; speed: number }) {
-  const ref = useRef<THREE.Mesh>(null)
-  const t = useRef(Math.random() * Math.PI * 2)
-  useFrame((_, delta) => {
-    t.current += delta * speed
-    if (ref.current) {
-      ref.current.position.y = position[1] + Math.sin(t.current) * 0.4
-      const mat = ref.current.material as THREE.MeshStandardMaterial
-      mat.emissiveIntensity = 0.6 + Math.sin(t.current * 1.3) * 0.3
-    }
-  })
+// ─── Sparkle burst on diamond reveal ─────────────────────────────────────────
+function Sparkles() {
   return (
-    <mesh ref={ref} position={position}>
-      <sphereGeometry args={[0.5, 12, 12]} />
-      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} transparent opacity={0.12} />
-    </mesh>
-  )
-}
-
-function Atmosphere() {
-  return (
-    <>
-      <ambientLight intensity={0.1} />
-      <AtmosphereOrb position={[-4, 2, -3]} color="#7c3aed" speed={0.4} />
-      <AtmosphereOrb position={[4, -1, -4]} color="#06b6d4" speed={0.3} />
-      <AtmosphereOrb position={[0, 3, -5]} color="#ec4899" speed={0.5} />
-      <AtmosphereOrb position={[-3, -2, -3]} color="#a855f7" speed={0.35} />
-      <AtmosphereOrb position={[3, 2, -4]} color="#3b82f6" speed={0.45} />
-      <EffectComposer>
-        <Bloom luminanceThreshold={0.2} intensity={2} />
-      </EffectComposer>
-    </>
-  )
-}
-
-// ─── Sparkle particles (CSS, triggered on diamond reveal) ─────────────────────
-function Sparkles({ active }: { active: boolean }) {
-  const particles = Array.from({ length: 8 }, (_, i) => ({
-    angle: (i / 8) * 360,
-    delay: i * 0.04,
-    distance: 28 + Math.random() * 16,
-  }))
-
-  if (!active) return null
-  return (
-    <div className="absolute inset-0 pointer-events-none">
-      {particles.map((p, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-1.5 h-1.5 rounded-full bg-emerald-300"
-          style={{ top: '50%', left: '50%', marginTop: -3, marginLeft: -3 }}
-          initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-          animate={{
-            x: Math.cos((p.angle * Math.PI) / 180) * p.distance,
-            y: Math.sin((p.angle * Math.PI) / 180) * p.distance,
-            opacity: 0,
-            scale: 0,
-          }}
-          transition={{ duration: 0.6, delay: p.delay, ease: 'easeOut' }}
-        />
-      ))}
+    <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-xl">
+      {Array.from({ length: 6 }, (_, i) => {
+        const angle = (i / 6) * 360
+        const dist = 20 + Math.random() * 12
+        return (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 rounded-full bg-emerald-300"
+            style={{ top: '50%', left: '50%', marginTop: -2, marginLeft: -2 }}
+            initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+            animate={{
+              x: Math.cos((angle * Math.PI) / 180) * dist,
+              y: Math.sin((angle * Math.PI) / 180) * dist,
+              opacity: 0,
+              scale: 0,
+            }}
+            transition={{ duration: 0.55, ease: 'easeOut' }}
+          />
+        )
+      })}
     </div>
   )
 }
 
-function ExplosionParticles({ active }: { active: boolean }) {
-  const particles = Array.from({ length: 12 }, (_, i) => ({
-    angle: (i / 12) * 360,
-    delay: i * 0.02,
-    distance: 32 + Math.random() * 20,
-    color: i % 3 === 0 ? '#ef4444' : i % 3 === 1 ? '#f97316' : '#fbbf24',
-  }))
-
-  if (!active) return null
+// ─── Explosion burst on mine hit ──────────────────────────────────────────────
+function Explosion() {
+  const colors = ['#ef4444', '#f97316', '#fbbf24', '#ef4444', '#f97316']
   return (
-    <div className="absolute inset-0 pointer-events-none">
-      {particles.map((p, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-2 h-2 rounded-full"
-          style={{
-            top: '50%', left: '50%', marginTop: -4, marginLeft: -4,
-            background: p.color,
-          }}
-          initial={{ x: 0, y: 0, opacity: 1, scale: 1.5 }}
-          animate={{
-            x: Math.cos((p.angle * Math.PI) / 180) * p.distance,
-            y: Math.sin((p.angle * Math.PI) / 180) * p.distance,
-            opacity: 0,
-            scale: 0,
-          }}
-          transition={{ duration: 0.5, delay: p.delay, ease: 'easeOut' }}
-        />
-      ))}
+    <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-xl">
+      {Array.from({ length: 10 }, (_, i) => {
+        const angle = (i / 10) * 360
+        const dist = 24 + Math.random() * 16
+        return (
+          <motion.div
+            key={i}
+            className="absolute w-1.5 h-1.5 rounded-full"
+            style={{
+              top: '50%', left: '50%', marginTop: -3, marginLeft: -3,
+              background: colors[i % colors.length],
+            }}
+            initial={{ x: 0, y: 0, opacity: 1, scale: 1.5 }}
+            animate={{
+              x: Math.cos((angle * Math.PI) / 180) * dist,
+              y: Math.sin((angle * Math.PI) / 180) * dist,
+              opacity: 0,
+              scale: 0,
+            }}
+            transition={{ duration: 0.45, ease: 'easeOut', delay: i * 0.015 }}
+          />
+        )
+      })}
     </div>
   )
 }
 
-// ─── Individual Tile ──────────────────────────────────────────────────────────
+// ─── Single tile ──────────────────────────────────────────────────────────────
 interface TileProps {
   index: number
   state: TileState
-  onClick: () => void
-  disabled: boolean
   isHitMine: boolean
-  revealDelay?: number
+  isClickable: boolean
+  revealDelay: number
+  onClick: () => void
 }
 
-function MineTile({ index, state, onClick, disabled, isHitMine, revealDelay = 0 }: TileProps) {
-  const [showSparkles, setShowSparkles] = useState(false)
-  const [showExplosion, setShowExplosion] = useState(false)
-  const prevState = useRef(state)
+function MineTile({ index, state, isHitMine, isClickable, revealDelay, onClick }: TileProps) {
+  const [burstKey, setBurstKey] = useState(0)
+  const prevState = useRef<TileState>('hidden')
 
   useEffect(() => {
-    if (prevState.current !== state) {
-      if (state === 'safe') setShowSparkles(true)
-      if (state === 'mine' || state === 'mine-revealed') setShowExplosion(true)
-      prevState.current = state
+    if (state !== prevState.current && (state === 'safe' || state === 'mine')) {
+      setBurstKey(k => k + 1)
     }
+    prevState.current = state
   }, [state])
 
-  useEffect(() => {
-    if (showSparkles) {
-      const t = setTimeout(() => setShowSparkles(false), 700)
-      return () => clearTimeout(t)
-    }
-  }, [showSparkles])
-
-  useEffect(() => {
-    if (showExplosion) {
-      const t = setTimeout(() => setShowExplosion(false), 600)
-      return () => clearTimeout(t)
-    }
-  }, [showExplosion])
-
-  const isClickable = state === 'hidden' && !disabled
-
   return (
-    <motion.div
+    <div
       className={cn(
-        'relative aspect-square rounded-xl cursor-pointer select-none overflow-visible',
-        'transition-colors duration-150',
+        'relative aspect-square rounded-xl select-none',
         isClickable ? 'cursor-pointer' : 'cursor-default',
       )}
-      style={{ perspective: '600px' }}
-      initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ delay: index * 0.02, type: 'spring', stiffness: 300, damping: 20 }}
-      whileHover={isClickable ? { scale: 1.06, zIndex: 10 } : {}}
-      whileTap={isClickable ? { scale: 0.94 } : {}}
       onClick={isClickable ? onClick : undefined}
     >
-      {/* Tile face */}
       <AnimatePresence mode="wait">
+
+        {/* Hidden */}
         {state === 'hidden' && (
           <motion.div
             key="hidden"
             className={cn(
               'absolute inset-0 rounded-xl border flex items-center justify-center',
-              'bg-gradient-to-br from-purple-950/80 to-slate-900/90',
-              isClickable
-                ? 'border-purple-700/40 hover:border-purple-500/70 hover:shadow-[0_0_16px_rgba(168,85,247,0.25)]'
-                : 'border-purple-900/20',
+              'bg-[#13102a] border-purple-800/30',
+              isClickable && 'hover:bg-[#1c1840] hover:border-purple-600/60 hover:shadow-[0_0_12px_rgba(139,92,246,0.2)] transition-all duration-100',
             )}
-            initial={{ rotateX: 0 }}
-            exit={{ rotateX: -90, transition: { duration: 0.15 } }}
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: index * 0.018, type: 'spring', stiffness: 260, damping: 22 }}
           >
-            {/* Grid cross pattern */}
-            <div className="absolute inset-0 rounded-xl overflow-hidden opacity-30">
-              <div className="absolute inset-0" style={{
-                backgroundImage: 'linear-gradient(rgba(139,92,246,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.15) 1px, transparent 1px)',
-                backgroundSize: '8px 8px',
-              }} />
-            </div>
-            {/* Center gem hint */}
-            <div className="w-3 h-3 rounded-sm bg-purple-800/40 rotate-45 border border-purple-700/30" />
+            <div className="w-3 h-3 rotate-45 rounded-sm bg-purple-900/60 border border-purple-700/30" />
           </motion.div>
         )}
 
+        {/* Revealing */}
         {state === 'revealing' && (
           <motion.div
             key="revealing"
-            className="absolute inset-0 rounded-xl bg-white/20 border border-white/40"
-            animate={{ opacity: [1, 0.5, 1] }}
-            transition={{ duration: 0.3, repeat: Infinity }}
+            className="absolute inset-0 rounded-xl bg-purple-500/20 border border-purple-400/40"
+            animate={{ opacity: [0.6, 1, 0.6] }}
+            transition={{ duration: 0.35, repeat: Infinity }}
           />
         )}
 
+        {/* Safe — diamond */}
         {state === 'safe' && (
           <motion.div
             key="safe"
-            className="absolute inset-0 rounded-xl border border-emerald-500/50 bg-gradient-to-br from-emerald-950/90 to-green-900/80 flex items-center justify-center shadow-[inset_0_0_20px_rgba(16,185,129,0.15),0_0_20px_rgba(16,185,129,0.1)]"
-            initial={{ rotateX: 90, scale: 0.8 }}
-            animate={{ rotateX: 0, scale: 1 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 20, delay: revealDelay }}
+            className="absolute inset-0 rounded-xl border border-emerald-600/40 bg-[#071a10] flex items-center justify-center shadow-[inset_0_0_16px_rgba(16,185,129,0.1)]"
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 18 }}
           >
-            {/* Diamond */}
+            {/* Diamond shape */}
             <motion.div
-              className="relative flex items-center justify-center"
-              animate={{ y: [0, -3, 0] }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+              className="relative w-7 h-7"
+              animate={{ y: [0, -2, 0] }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
             >
-              {/* Outer glow */}
-              <div className="absolute inset-0 rounded-full bg-emerald-400/20 blur-md scale-150" />
-              {/* Diamond shape */}
-              <div className="relative w-8 h-8">
-                <div className="absolute inset-0 rotate-45 rounded-sm bg-gradient-to-br from-emerald-300 via-green-400 to-emerald-600 shadow-[0_0_12px_rgba(52,211,153,0.8)]" />
-                <div className="absolute inset-0 rotate-45 rounded-sm overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1/2 h-1/2 bg-white/30 rounded-br-full" />
-                </div>
+              <div className="absolute inset-0 rotate-45 rounded-sm bg-gradient-to-br from-emerald-300 via-green-400 to-emerald-600 shadow-[0_0_10px_rgba(52,211,153,0.7)]" />
+              {/* Shine */}
+              <div className="absolute inset-0 rotate-45 rounded-sm overflow-hidden">
+                <div className="absolute top-0 left-0 w-1/2 h-1/2 bg-white/25 rounded-br-full" />
               </div>
             </motion.div>
-            {/* Sparkles */}
-            <Sparkles active={showSparkles} />
+            {/* Sparkle burst — re-mounts each time burstKey changes */}
+            <Sparkles key={burstKey} />
           </motion.div>
         )}
 
-        {(state === 'mine' || state === 'mine-revealed') && (
+        {/* Mine (hit) */}
+        {state === 'mine' && (
           <motion.div
-            key="mine"
-            className={cn(
-              'absolute inset-0 rounded-xl border flex items-center justify-center',
-              isHitMine
-                ? 'border-red-500/80 bg-gradient-to-br from-red-950/95 to-rose-900/90 shadow-[inset_0_0_30px_rgba(239,68,68,0.3),0_0_30px_rgba(239,68,68,0.2)]'
-                : 'border-red-800/40 bg-gradient-to-br from-red-950/70 to-slate-900/80',
-            )}
-            initial={state === 'mine' ? { scale: 1.2, rotateX: 90 } : { scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, rotateX: 0, opacity: 1 }}
-            transition={state === 'mine'
-              ? { type: 'spring', stiffness: 400, damping: 15 }
-              : { delay: revealDelay * 0.5, duration: 0.3 }
-            }
+            key="mine-hit"
+            className="absolute inset-0 rounded-xl border border-red-500/60 bg-[#1a0505] flex items-center justify-center shadow-[inset_0_0_20px_rgba(239,68,68,0.2),0_0_20px_rgba(239,68,68,0.15)]"
+            initial={{ scale: 1.15 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', stiffness: 350, damping: 12 }}
           >
-            <motion.div
-              className="text-3xl"
-              animate={isHitMine ? {
-                scale: [1, 1.3, 0.9, 1.1, 1],
-                rotate: [-5, 5, -3, 3, 0],
-              } : {}}
-              transition={{ duration: 0.5 }}
+            <motion.span
+              className="text-2xl"
+              animate={{ rotate: [-8, 8, -5, 5, 0], scale: [1, 1.2, 0.95, 1] }}
+              transition={{ duration: 0.45 }}
             >
               💣
-            </motion.div>
-            {/* Explosion ring on hit mine */}
-            {isHitMine && (
-              <motion.div
-                className="absolute inset-0 rounded-xl border-2 border-red-400"
-                initial={{ scale: 1, opacity: 1 }}
-                animate={{ scale: 2.5, opacity: 0 }}
-                transition={{ duration: 0.6 }}
-              />
-            )}
-            <ExplosionParticles active={showExplosion} />
+            </motion.span>
+            {/* Explosion ring */}
+            <motion.div
+              className="absolute inset-0 rounded-xl border-2 border-red-400/70"
+              initial={{ scale: 1, opacity: 1 }}
+              animate={{ scale: 2.2, opacity: 0 }}
+              transition={{ duration: 0.55 }}
+            />
+            <Explosion key={burstKey} />
           </motion.div>
         )}
+
+        {/* Mine (revealed after game) */}
+        {state === 'mine-revealed' && (
+          <motion.div
+            key="mine-reveal"
+            className="absolute inset-0 rounded-xl border border-red-900/40 bg-[#150505] flex items-center justify-center"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: revealDelay, duration: 0.25 }}
+          >
+            <span className="text-xl opacity-60">💣</span>
+          </motion.div>
+        )}
+
       </AnimatePresence>
-    </motion.div>
+    </div>
   )
 }
 
-// ─── Multiplier Display ───────────────────────────────────────────────────────
-function MultiplierBadge({ multiplier, revealed, betAmount }: { multiplier: number; revealed: number; betAmount: number }) {
-  const potentialWin = Math.round(betAmount * multiplier * 100) / 100
-  const intensity = Math.min(revealed / 10, 1)
+// ─── Multiplier badge ─────────────────────────────────────────────────────────
+function MultiplierBadge({ multiplier, betAmount, revealed }: { multiplier: number; betAmount: number; revealed: number }) {
+  const win = Math.round(betAmount * multiplier * 100) / 100
+  const glow = Math.min(revealed / 8, 1)
 
   return (
     <motion.div
-      className="flex items-center gap-4 px-6 py-3 rounded-2xl border"
-      style={{
-        background: `rgba(16, 185, 129, ${0.05 + intensity * 0.1})`,
-        borderColor: `rgba(52, 211, 153, ${0.2 + intensity * 0.4})`,
-        boxShadow: `0 0 ${20 + intensity * 30}px rgba(16, 185, 129, ${0.05 + intensity * 0.15})`,
-      }}
       key={multiplier}
-      animate={{ scale: [1, 1.04, 1] }}
-      transition={{ duration: 0.25 }}
+      className="flex items-center gap-4 px-5 py-2.5 rounded-2xl border"
+      style={{
+        background: `rgba(5, 46, 22, ${0.6 + glow * 0.2})`,
+        borderColor: `rgba(52,211,153,${0.25 + glow * 0.45})`,
+        boxShadow: `0 0 ${16 + glow * 24}px rgba(16,185,129,${0.06 + glow * 0.1})`,
+      }}
+      animate={{ scale: [1, 1.03, 1] }}
+      transition={{ duration: 0.2 }}
     >
-      <div>
-        <div className="text-[11px] text-white/40 uppercase tracking-widest">Multiplier</div>
+      <div className="text-center">
+        <div className="text-[10px] text-white/35 uppercase tracking-widest mb-0.5">Multiplier</div>
         <motion.div
-          className="text-2xl font-black"
-          style={{ color: `hsl(${140 + intensity * 20}, 80%, ${60 + intensity * 15}%)` }}
+          className="text-xl font-black text-emerald-300"
           key={multiplier}
-          initial={{ scale: 1.3, color: '#ffffff' }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', stiffness: 400 }}
+          initial={{ scale: 1.4, color: '#fff' }}
+          animate={{ scale: 1, color: '#6ee7b7' }}
+          transition={{ type: 'spring', stiffness: 300 }}
         >
           {multiplier.toFixed(2)}×
         </motion.div>
       </div>
-      <div className="w-px h-10 bg-white/10" />
-      <div>
-        <div className="text-[11px] text-white/40 uppercase tracking-widest">Win if cashout</div>
-        <div className="text-2xl font-black text-white">{potentialWin.toLocaleString()}</div>
+      <div className="w-px h-8 bg-white/10" />
+      <div className="text-center">
+        <div className="text-[10px] text-white/35 uppercase tracking-widest mb-0.5">Cashout</div>
+        <div className="text-xl font-black text-white">{win.toLocaleString()}</div>
       </div>
     </motion.div>
   )
 }
 
-// ─── Near-Win Tension overlay ─────────────────────────────────────────────────
-function TensionOverlay({ revealed, maxSafe }: { revealed: number; maxSafe: number }) {
-  const tension = Math.min(revealed / Math.max(maxSafe * 0.6, 1), 1)
-  if (tension < 0.3) return null
+// ─── Near-win tension ring ────────────────────────────────────────────────────
+function TensionRing({ revealed, maxSafe }: { revealed: number; maxSafe: number }) {
+  const t = Math.min(revealed / Math.max(maxSafe * 0.55, 1), 1)
+  if (t < 0.25) return null
   return (
     <motion.div
-      className="absolute inset-0 pointer-events-none rounded-2xl"
+      className="absolute inset-0 rounded-2xl pointer-events-none"
+      style={{ zIndex: 0 }}
       animate={{
         boxShadow: [
-          `inset 0 0 ${tension * 60}px rgba(168, 85, 247, ${tension * 0.12})`,
-          `inset 0 0 ${tension * 80}px rgba(168, 85, 247, ${tension * 0.18})`,
-          `inset 0 0 ${tension * 60}px rgba(168, 85, 247, ${tension * 0.12})`,
+          `inset 0 0 ${t * 50}px rgba(168,85,247,${t * 0.1})`,
+          `inset 0 0 ${t * 70}px rgba(168,85,247,${t * 0.16})`,
+          `inset 0 0 ${t * 50}px rgba(168,85,247,${t * 0.1})`,
         ],
       }}
-      transition={{ duration: 1.5 - tension, repeat: Infinity, ease: 'easeInOut' }}
+      transition={{ duration: Math.max(0.7, 1.6 - t), repeat: Infinity, ease: 'easeInOut' }}
     />
   )
 }
 
-// ─── Main Game Component ──────────────────────────────────────────────────────
+// ─── Main component ───────────────────────────────────────────────────────────
 export function MinesGame() {
   const [mineCount, setMineCount] = useState(3)
   const [game, setGame] = useState<ActiveGame | null>(null)
-  const [tiles, setTiles] = useState<TileState[]>(Array(25).fill('hidden'))
+  const [tiles, setTiles] = useState<TileState[]>(Array(25).fill('hidden' as TileState))
   const [shaking, setShaking] = useState(false)
   const isRevealingRef = useRef(false)
 
   const sounds = useSounds()
   const bet = useGameBet({ gameType: 'MINES', defaultAmount: 100 })
 
-  const currentMultiplier = game ? getMinesMultiplier(game.mineCount, game.revealed.length) : 1
-  const maxSafe = game ? 25 - game.mineCount : 25 - mineCount
   const isPlaying = game?.status === 'playing'
+  const maxSafe = game ? 25 - game.mineCount : 25 - mineCount
+  const currentMultiplier = game ? getMinesMultiplier(game.mineCount, game.revealed.length) : 1
 
-  // Screen shake on bomb
   const triggerShake = useCallback(() => {
     setShaking(true)
-    setTimeout(() => setShaking(false), 500)
+    setTimeout(() => setShaking(false), 480)
   }, [])
 
-  // Build tile states from game state
-  const computeTiles = useCallback((g: ActiveGame | null): TileState[] => {
-    if (!g) return Array(25).fill('hidden')
-    return Array.from({ length: 25 }, (_, i) => {
-      if (g.revealed.includes(i)) return 'safe'
-      if (g.status !== 'playing' && g.mines) {
-        if (i === g.hitMine) return 'mine'
-        if (g.mines.includes(i)) return 'mine-revealed'
-      }
-      return 'hidden'
-    })
-  }, [])
-
-  const handleStartGame = useCallback(async () => {
+  // ── Start game ──────────────────────────────────────────────────────────────
+  const handleStart = useCallback(async () => {
     if (!bet.canBet || bet.isLoading) return
     bet.setIsLoading(true)
     sounds.playClick()
-    setTiles(Array(25).fill('hidden'))
+    setTiles(Array(25).fill('hidden' as TileState))
 
     try {
       const data = await bet.apiCall('/api/games/mines', {
@@ -393,7 +303,6 @@ export function MinesGame() {
         mineCount,
         mode: bet.currency === 'NC' ? 'neon' : 'real',
       })
-
       const newGame: ActiveGame = {
         txId: data.txId,
         mineCount: data.mineCount,
@@ -403,98 +312,72 @@ export function MinesGame() {
         status: 'playing',
       }
       setGame(newGame)
-      setTiles(computeTiles(newGame))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to start game')
     } finally {
       bet.setIsLoading(false)
     }
-  }, [bet, mineCount, sounds, computeTiles])
+  }, [bet, mineCount, sounds])
 
+  // ── Reveal tile ─────────────────────────────────────────────────────────────
   const handleReveal = useCallback(async (position: number) => {
-    if (!game || game.status !== 'playing' || isRevealingRef.current) return
+    if (!game || game.status !== 'playing') return
     if (tiles[position] !== 'hidden') return
+    if (isRevealingRef.current) return
     isRevealingRef.current = true
+
+    // Optimistic loading state
+    setTiles(prev => { const n = [...prev]; n[position] = 'revealing'; return n })
     sounds.playClick()
 
-    // Optimistic: show revealing state
-    setTiles(prev => {
-      const next = [...prev]
-      next[position] = 'revealing'
-      return next
-    })
-
     try {
-      const data = await bet.apiCall('/api/games/mines/reveal', {
-        txId: game.txId,
-        position,
-      })
+      const data = await bet.apiCall('/api/games/mines/reveal', { txId: game.txId, position })
 
       if (data.isMine) {
         sounds.playLose()
         triggerShake()
-        const updatedGame: ActiveGame = {
-          ...game,
-          revealed: data.revealed,
-          status: 'lost',
-          mines: data.mines,
-          hitMine: position,
-        }
-        setGame(updatedGame)
+
+        // Show hit mine immediately
+        setTiles(prev => { const n = [...prev]; n[position] = 'mine'; return n })
 
         // Stagger-reveal remaining mines
-        const minePositions: number[] = data.mines.filter((m: number) => m !== position)
-        setTiles(prev => {
-          const next = [...prev]
-          next[position] = 'mine'
-          return next
-        })
-
-        minePositions.forEach((minePos: number, idx: number) => {
+        const others: number[] = (data.mines as number[]).filter(m => m !== position)
+        others.forEach((minePos, idx) => {
           setTimeout(() => {
-            setTiles(prev => {
-              const next = [...prev]
-              next[minePos] = 'mine-revealed'
-              return next
-            })
-          }, 150 + idx * 80)
+            setTiles(prev => { const n = [...prev]; n[minePos] = 'mine-revealed'; return n })
+          }, 120 + idx * 70)
         })
 
+        setGame(g => g ? { ...g, revealed: data.revealed, status: 'lost', mines: data.mines, hitMine: position } : null)
         bet.syncBalance({ newNeonCoins: data.newNeonCoins, newBalance: data.newBalance })
-        toast.error('💣 Mine hit!', { duration: 2500 })
+        toast.error('💣 Hit a mine!', { duration: 2500 })
       } else {
         sounds.playWin()
-        const updatedGame: ActiveGame = {
-          ...game,
-          revealed: data.revealed,
-          status: data.autoWin ? 'won' : 'playing',
-          ...(data.autoWin ? { mines: data.mines } : {}),
-        }
-        setGame(updatedGame)
-        setTiles(prev => {
-          const next = [...prev]
-          next[position] = 'safe'
-          return next
-        })
+        setTiles(prev => { const n = [...prev]; n[position] = 'safe'; return n })
+        setGame(g => g ? { ...g, revealed: data.revealed, status: data.autoWin ? 'won' : 'playing' } : null)
 
         if (data.autoWin) {
           bet.syncBalance({ newNeonCoins: data.newNeonCoins, newBalance: data.newBalance })
           fireWinCelebration({ amount: game.betAmount * data.multiplier })
           toast.success(`🎉 ${data.multiplier}× — all safe tiles found!`)
+          // Reveal mines
+          const mines = data.mines as number[]
+          mines.forEach((minePos: number, idx: number) => {
+            setTimeout(() => {
+              setTiles(prev => { const n = [...prev]; n[minePos] = 'mine-revealed'; return n })
+            }, idx * 60)
+          })
         }
       }
     } catch (err) {
-      setTiles(prev => {
-        const next = [...prev]
-        next[position] = 'hidden'
-        return next
-      })
+      setTiles(prev => { const n = [...prev]; n[position] = 'hidden'; return n })
       toast.error(err instanceof Error ? err.message : 'Reveal failed')
     } finally {
       isRevealingRef.current = false
     }
   }, [game, tiles, bet, sounds, triggerShake])
 
+  // ── Cashout ─────────────────────────────────────────────────────────────────
   const handleCashout = useCallback(async () => {
     if (!game || game.status !== 'playing' || game.revealed.length === 0) return
     bet.setIsLoading(true)
@@ -505,18 +388,12 @@ export function MinesGame() {
       bet.syncBalance(data)
       fireWinCelebration({ amount: data.winAmount })
       toast.success(`💰 ${data.multiplier}× — +${data.winAmount.toLocaleString()} ${bet.currency}!`)
-
-      // Reveal mines after cashout
-      const updatedGame: ActiveGame = { ...game, status: 'won', mines: data.mines }
-      setGame(updatedGame)
-      data.mines.forEach((minePos: number, idx: number) => {
+      setGame(g => g ? { ...g, status: 'won', mines: data.mines } : null)
+      const mines = data.mines as number[]
+      mines.forEach((minePos: number, idx: number) => {
         setTimeout(() => {
-          setTiles(prev => {
-            const next = [...prev]
-            next[minePos] = 'mine-revealed'
-            return next
-          })
-        }, idx * 60)
+          setTiles(prev => { const n = [...prev]; n[minePos] = 'mine-revealed'; return n })
+        }, idx * 55)
       })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Cashout failed')
@@ -527,22 +404,22 @@ export function MinesGame() {
 
   const handleReset = useCallback(() => {
     setGame(null)
-    setTiles(Array(25).fill('hidden'))
+    setTiles(Array(25).fill('hidden' as TileState))
     bet.setIsLoading(false)
   }, [bet])
 
+  // ─── Sidebar panel ──────────────────────────────────────────────────────────
   const panel = (
     <BettingPanel
       {...bet}
       onBet={isPlaying
         ? (game.revealed.length > 0 ? handleCashout : undefined)
-        : handleStartGame
-      }
+        : handleStart}
       disabled={isPlaying && game.revealed.length === 0}
       actionLabel={
         isPlaying
           ? game.revealed.length === 0
-            ? 'Reveal a tile...'
+            ? 'Reveal a tile first'
             : `Cashout ${currentMultiplier.toFixed(2)}×`
           : 'Start Game'
       }
@@ -552,7 +429,7 @@ export function MinesGame() {
           : undefined
       }
     >
-      {/* Mine count */}
+      {/* Mine count controls */}
       {!isPlaying ? (
         <div>
           <label className="text-[11px] text-white/40 uppercase tracking-widest mb-2 block">
@@ -564,10 +441,8 @@ export function MinesGame() {
             className="w-full accent-purple-500 h-1.5"
           />
           <div className="flex justify-between text-[10px] text-white/20 mt-1">
-            <span>1 mine</span>
-            <span>24 mines</span>
+            <span>1</span><span>24</span>
           </div>
-          {/* Mine count presets */}
           <div className="grid grid-cols-4 gap-1 mt-2">
             {[1, 3, 5, 10, 15, 20, 23, 24].map(n => (
               <button key={n} onClick={() => setMineCount(n)}
@@ -577,27 +452,25 @@ export function MinesGame() {
                     ? 'bg-purple-600/30 border-purple-500/50 text-purple-200'
                     : 'bg-white/[0.03] border-white/[0.06] text-white/40 hover:text-white/70'
                 )}
-              >
-                {n}
-              </button>
+              >{n}</button>
             ))}
           </div>
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           <div className="flex justify-between text-xs">
-            <span className="text-white/40">Mines hidden</span>
+            <span className="text-white/40">Mines</span>
             <span className="font-bold text-red-400">{game.mineCount} 💣</span>
           </div>
           <div className="flex justify-between text-xs">
-            <span className="text-white/40">Safe tiles left</span>
-            <span className="font-bold text-emerald-400">{maxSafe - game.revealed.length}</span>
+            <span className="text-white/40">Safe left</span>
+            <span className="font-bold text-emerald-400">{maxSafe - game.revealed.length} 💎</span>
           </div>
           <div className="flex justify-between text-xs">
             <span className="text-white/40">Revealed</span>
-            <span className="font-bold text-white">{game.revealed.length} / {maxSafe}</span>
+            <span className="font-bold text-white">{game.revealed.length}/{maxSafe}</span>
           </div>
-          <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+          <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden mt-1">
             <motion.div
               className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-green-400"
               animate={{ width: `${(game.revealed.length / maxSafe) * 100}%` }}
@@ -609,137 +482,115 @@ export function MinesGame() {
     </BettingPanel>
   )
 
-  const gameView = (
-    <div className="relative w-full h-full flex flex-col items-center justify-center gap-4 min-h-[500px]">
+  // ─── Game area ──────────────────────────────────────────────────────────────
+  const gameArea = (
+    <div className="w-full flex flex-col items-center gap-4 pt-2">
 
-      {/* R3F atmosphere background */}
-      <div className="absolute inset-0 pointer-events-none">
-        <Canvas camera={{ position: [0, 0, 8], fov: 50 }} dpr={[1, 1.5]} style={{ opacity: 0.6 }}>
-          <Suspense fallback={null}>
-            <Atmosphere />
-          </Suspense>
-        </Canvas>
-      </div>
-
-      {/* Multiplier bar */}
-      {game && isPlaying && game.revealed.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative z-10"
-        >
-          <MultiplierBadge
-            multiplier={currentMultiplier}
-            revealed={game.revealed.length}
-            betAmount={game.betAmount}
-          />
-        </motion.div>
-      )}
+      {/* Multiplier bar — visible only while playing and after first reveal */}
+      <AnimatePresence>
+        {game && isPlaying && game.revealed.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+          >
+            <MultiplierBadge
+              multiplier={currentMultiplier}
+              betAmount={game.betAmount}
+              revealed={game.revealed.length}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Board */}
       <motion.div
-        className="relative z-10 w-full max-w-[440px]"
-        animate={shaking ? {
-          x: [-6, 6, -4, 4, -2, 2, 0],
-          transition: { duration: 0.4 }
-        } : {}}
-        style={{ perspective: '1000px' }}
+        className="relative w-full max-w-[420px]"
+        animate={shaking ? { x: [-5, 5, -4, 4, -2, 2, 0] } : {}}
+        transition={shaking ? { duration: 0.4 } : {}}
       >
-        <motion.div
-          className="relative p-3 sm:p-4 rounded-2xl"
+        {/* Board card */}
+        <div
+          className="relative rounded-2xl p-3 sm:p-4"
           style={{
-            background: 'rgba(10, 8, 25, 0.85)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(139, 92, 246, 0.2)',
-            boxShadow: '0 25px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
-            transformStyle: 'preserve-3d',
-            rotateX: 3,
+            background: 'rgba(9, 7, 20, 0.9)',
+            border: '1px solid rgba(109, 40, 217, 0.2)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)',
           }}
         >
-          {/* Board glow overlay on near-win */}
-          {game && isPlaying && <TensionOverlay revealed={game.revealed.length} maxSafe={maxSafe} />}
+          {/* Near-win tension ring */}
+          {game && isPlaying && (
+            <TensionRing revealed={game.revealed.length} maxSafe={maxSafe} />
+          )}
 
-          {/* Grid */}
-          <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+          {/* 5×5 tile grid */}
+          <div className="grid grid-cols-5 gap-1.5 sm:gap-2 relative z-10">
             {tiles.map((state, i) => (
               <MineTile
                 key={i}
                 index={i}
                 state={state}
-                onClick={() => handleReveal(i)}
-                disabled={!isPlaying || bet.isLoading}
                 isHitMine={game?.hitMine === i}
+                isClickable={state === 'hidden' && !!isPlaying && !bet.isLoading}
                 revealDelay={state === 'mine-revealed' ? i * 0.04 : 0}
+                onClick={() => handleReveal(i)}
               />
             ))}
           </div>
 
-          {/* Board corner accents */}
-          {(['top-2 left-2', 'top-2 right-2', 'bottom-2 left-2', 'bottom-2 right-2'] as const).map((pos, i) => (
-            <div
-              key={i}
-              className={`absolute ${pos} w-4 h-4 border-purple-600/40`}
-              style={{
-                borderTopWidth: i < 2 ? 1 : 0,
-                borderBottomWidth: i >= 2 ? 1 : 0,
-                borderLeftWidth: i % 2 === 0 ? 1 : 0,
-                borderRightWidth: i % 2 === 1 ? 1 : 0,
-                borderRadius: i === 0 ? '4px 0 0 0' : i === 1 ? '0 4px 0 0' : i === 2 ? '0 0 0 4px' : '0 0 4px 0',
-              }}
-            />
-          ))}
-        </motion.div>
+          {/* Corner accents */}
+          <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-purple-600/30 rounded-tl pointer-events-none" />
+          <div className="absolute top-2 right-2 w-3 h-3 border-t border-r border-purple-600/30 rounded-tr pointer-events-none" />
+          <div className="absolute bottom-2 left-2 w-3 h-3 border-b border-l border-purple-600/30 rounded-bl pointer-events-none" />
+          <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-purple-600/30 rounded-br pointer-events-none" />
+        </div>
       </motion.div>
 
-      {/* End-game overlay */}
+      {/* End-game result card */}
       <AnimatePresence>
         {game && !isPlaying && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="relative z-20"
-          >
-            <div className={cn(
-              'flex flex-col items-center gap-3 px-8 py-5 rounded-2xl border text-center',
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className={cn(
+              'w-full max-w-[420px] flex items-center justify-between px-5 py-4 rounded-2xl border',
               game.status === 'won'
-                ? 'bg-emerald-950/90 border-emerald-500/40 shadow-[0_0_40px_rgba(16,185,129,0.15)]'
-                : 'bg-red-950/90 border-red-500/40 shadow-[0_0_40px_rgba(239,68,68,0.15)]',
-            )}>
-              <div className="text-3xl font-black text-white">
-                {game.status === 'won' ? '🎉 Cashed Out!' : '💣 Game Over'}
+                ? 'bg-emerald-950/80 border-emerald-600/30'
+                : 'bg-red-950/80 border-red-700/30',
+            )}
+          >
+            <div>
+              <div className="text-base font-black text-white">
+                {game.status === 'won' ? '🎉 Cashed Out' : '💣 Game Over'}
               </div>
               <div className={cn(
-                'text-lg font-bold',
-                game.status === 'won' ? 'text-emerald-400' : 'text-red-400'
+                'text-sm font-semibold mt-0.5',
+                game.status === 'won' ? 'text-emerald-400' : 'text-red-400',
               )}>
                 {game.status === 'won'
-                  ? `${currentMultiplier.toFixed(2)}× — ${Math.round(game.betAmount * currentMultiplier)} ${game.currency}`
-                  : `Lost ${game.betAmount} ${game.currency}`}
+                  ? `+${Math.round(game.betAmount * currentMultiplier).toLocaleString()} ${game.currency}`
+                  : `Lost ${game.betAmount.toLocaleString()} ${game.currency}`}
               </div>
-              <button
-                onClick={handleReset}
-                className="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-sm text-white/80 hover:text-white transition-all font-semibold mt-1"
-              >
-                Play Again →
-              </button>
             </div>
+            <button
+              onClick={handleReset}
+              className="px-4 py-2 rounded-xl bg-white/8 hover:bg-white/15 text-sm text-white/70 hover:text-white transition-all font-semibold border border-white/10"
+            >
+              Play Again
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Idle prompt */}
+      {/* Idle hint */}
       {!game && (
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="relative z-10 text-xs text-white/30 text-center mt-2"
-        >
+        <p className="text-xs text-white/25 text-center mt-1">
           Set your bet and mine count, then click Start Game
-        </motion.p>
+        </p>
       )}
     </div>
   )
 
-  return <GameLayout panel={panel} game={gameView} title="Mines" badge="Provably Fair" />
+  return <GameLayout panel={panel} game={gameArea} title="Mines" badge="Provably Fair" />
 }

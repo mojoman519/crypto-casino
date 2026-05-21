@@ -43,7 +43,7 @@ export function GameLayout({ panel, game, className, title, badge }: GameLayoutP
         )}
 
         {/* Game content */}
-        <div className="relative z-10 flex-1 flex items-center justify-center p-4 lg:p-6">
+        <div className="relative z-10 flex-1 flex items-start justify-center p-4 lg:p-6">
           {game}
         </div>
 
