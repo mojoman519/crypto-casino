@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageSquare, TrendingUp, Send, Users } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
@@ -67,6 +68,10 @@ function randomBet(): LiveBet {
 
 export function RightPanel() {
   const { user } = useAuthStore()
+  const pathname = usePathname()
+
+  // Hide on game pages — the betting panel is the primary sidebar there
+  if (pathname?.startsWith('/games/')) return null
   const [tab, setTab] = useState<'bets' | 'chat'>('bets')
   const [bets, setBets] = useState<LiveBet[]>(() => Array.from({ length: 12 }, randomBet))
   const [messages, setMessages] = useState<ChatMessage[]>([

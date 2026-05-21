@@ -55,7 +55,7 @@ export function BettingPanel({
   const isAutoBetActive = autoBet.enabled && isLoading
 
   return (
-    <div className="w-72 flex-shrink-0 flex flex-col gap-3 p-4 bg-[#0d0d18] border-r border-white/[0.06] h-full overflow-y-auto">
+    <div className="w-72 flex-shrink-0 flex flex-col gap-3 p-4 bg-[#0d0d18] border-r border-white/[0.06] overflow-y-auto self-start sticky top-0 max-h-screen">
 
       {/* Currency toggle */}
       <div className="flex gap-1 p-1 rounded-xl bg-white/[0.04]">
@@ -214,7 +214,7 @@ export function BettingPanel({
       </div>
 
       {/* CTA */}
-      <div className="mt-auto pt-2">
+      <div className="pt-2">
         {isAutoBetActive ? (
           <Button
             onClick={onStopAutoBet}
