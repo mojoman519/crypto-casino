@@ -144,7 +144,7 @@ export default function AdminPage() {
     )
   }
 
-  const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
+  const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'games', label: 'Game Settings', icon: Settings },
     { id: 'transactions', label: 'Ledger', icon: Activity },

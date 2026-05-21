@@ -22,6 +22,8 @@ const DEFAULTS: Record<string, Omit<GameSettings, 'id' | 'updatedAt' | 'updatedB
   DICE:     { gameType: 'DICE',     name: 'Dice',      isEnabled: true, houseEdge: 0.04, minBetNC: 10, maxBetNC: 1_000_000, minBetSOL: 0.001, maxBetSOL: 100, maxBetsPerMin: 30, maxBetsPerHour: 500 },
   ROULETTE: { gameType: 'ROULETTE', name: 'Roulette',  isEnabled: true, houseEdge: 0.04, minBetNC: 10, maxBetNC: 500_000,   minBetSOL: 0.001, maxBetSOL: 50,  maxBetsPerMin: 20, maxBetsPerHour: 300 },
   JACKPOT:  { gameType: 'JACKPOT',  name: 'Jackpot',   isEnabled: true, houseEdge: 0.05, minBetNC: 10, maxBetNC: 100_000,   minBetSOL: 0.001, maxBetSOL: 10,  maxBetsPerMin: 5,  maxBetsPerHour: 50  },
+  PLINKO:   { gameType: 'PLINKO',   name: 'Plinko',    isEnabled: true, houseEdge: 0.03, minBetNC: 10, maxBetNC: 1_000_000, minBetSOL: 0.001, maxBetSOL: 100, maxBetsPerMin: 30, maxBetsPerHour: 500 },
+  MINES:    { gameType: 'MINES',    name: 'Mines',     isEnabled: true, houseEdge: 0.03, minBetNC: 10, maxBetNC: 500_000,   minBetSOL: 0.001, maxBetSOL: 50,  maxBetsPerMin: 10, maxBetsPerHour: 100 },
 }
 
 // Per-instance cache (warm across requests in same serverless function)

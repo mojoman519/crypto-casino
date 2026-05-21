@@ -12,7 +12,7 @@ interface NavItem {
   id: string
   label: string
   href: string
-  icon: React.ElementType
+  icon: React.ComponentType<{ className?: string }>
   comingSoon?: boolean
   badge?: string
   children?: { label: string; href: string; comingSoon?: boolean }[]
@@ -22,11 +22,13 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'home',        label: 'Home',        href: '/',            icon: Home },
   { id: 'games',       label: 'Games',       href: '/games/dice',  icon: Gamepad2,
     children: [
+      { label: 'Mines',    href: '/games/mines' },
+      { label: 'Plinko',   href: '/games/plinko' },
       { label: 'Dice',     href: '/games/dice' },
       { label: 'Roulette', href: '/games/roulette' },
       { label: 'Jackpot',  href: '/games/jackpot' },
-      { label: 'Slots',    href: '#', comingSoon: true },
       { label: 'Blackjack',href: '#', comingSoon: true },
+      { label: 'Slots',    href: '#', comingSoon: true },
     ],
   },
   { id: 'profile',     label: 'Profile',     href: '/profile',     icon: User },

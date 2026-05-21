@@ -10,9 +10,11 @@ import { useRecentlyPlayed } from '@/hooks/useRecentlyPlayed'
 import { cn } from '@/lib/utils'
 
 export const ALL_GAMES = [
-  { id: 'jackpot', name: 'Jackpot',   href: '/games/jackpot',  icon: '💎', badge: 'MEGA', badgeColor: 'bg-cyan-500/20 text-cyan-400' },
-  { id: 'roulette',name: 'Roulette',  href: '/games/roulette', icon: '🎡', badge: 'HOT',  badgeColor: 'bg-red-500/20 text-red-400' },
-  { id: 'dice',    name: 'Dice',      href: '/games/dice',     icon: '🎲', badge: 'NEW',  badgeColor: 'bg-amber-500/20 text-amber-400' },
+  { id: 'mines',   name: 'Mines',    href: '/games/mines',    icon: '💣', badge: 'NEW',  badgeColor: 'bg-red-500/20 text-red-400' },
+  { id: 'plinko',  name: 'Plinko',   href: '/games/plinko',   icon: '🎳', badge: 'NEW',  badgeColor: 'bg-purple-500/20 text-purple-400' },
+  { id: 'jackpot', name: 'Jackpot',  href: '/games/jackpot',  icon: '💎', badge: 'MEGA', badgeColor: 'bg-cyan-500/20 text-cyan-400' },
+  { id: 'roulette',name: 'Roulette', href: '/games/roulette', icon: '🎡', badge: 'HOT',  badgeColor: 'bg-red-500/20 text-red-400' },
+  { id: 'dice',    name: 'Dice',     href: '/games/dice',     icon: '🎲', badge: '',     badgeColor: '' },
 ]
 
 const COMING_SOON = [
@@ -88,7 +90,7 @@ function GameRow({ game, isActive, isFav, onFavToggle, onClick }: GameRowProps) 
 
 interface SectionProps {
   label: string
-  icon: React.ElementType
+  icon: React.ComponentType<{ className?: string }>
   children: React.ReactNode
   defaultOpen?: boolean
 }
