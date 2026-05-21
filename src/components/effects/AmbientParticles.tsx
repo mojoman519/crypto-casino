@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import { useParticleEngine } from '@/hooks/useParticleEngine'
 
 interface Props {
@@ -21,8 +22,10 @@ interface Props {
  *   </div>
  */
 export function AmbientParticles({ theme, className, zIndex = 0 }: Props) {
+  const pathname = usePathname()
+  const isGamePage = pathname?.startsWith('/games/')
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  useParticleEngine(canvasRef, { theme })
+  useParticleEngine(canvasRef, { theme, enabled: !isGamePage })
 
   return (
     <canvas

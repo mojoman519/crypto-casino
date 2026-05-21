@@ -484,7 +484,7 @@ export function MinesGame() {
 
   // ─── Game area ──────────────────────────────────────────────────────────────
   const gameArea = (
-    <div className="w-full flex flex-col items-center gap-4 pt-2">
+    <div className="w-full flex flex-col items-center gap-3">
 
       {/* Multiplier bar — visible only while playing and after first reveal */}
       <AnimatePresence>
