@@ -12,14 +12,13 @@ interface GameLayoutProps {
 
 export function GameLayout({ panel, game, className }: GameLayoutProps) {
   return (
-    <div className={cn('flex min-h-full', className)}>
+    <div className={cn('flex w-full', className)}>
       {/* Left betting panel — desktop only */}
       <aside className="hidden lg:flex flex-shrink-0">{panel}</aside>
 
       {/* Game area */}
-      <div className="flex-1 flex flex-col min-h-0">
-        {/* Content */}
-        <div className="flex-1 flex items-start justify-center p-2 lg:p-3">
+      <div className="flex-1 flex flex-col">
+        <div className="flex items-start justify-center p-2 lg:p-3">
           {game}
         </div>
 

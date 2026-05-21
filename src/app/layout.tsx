@@ -9,7 +9,7 @@ import { MobileNav } from '@/components/layout/MobileNav'
 import { WalletModal } from '@/components/wallet/WalletModal'
 import { DepositModal } from '@/components/wallet/DepositModal'
 import { WithdrawModal } from '@/components/wallet/WithdrawModal'
-import { AmbientParticles } from '@/components/effects/AmbientParticles'
+import { ConditionalParticles } from '@/components/effects/ConditionalParticles'
 import { CelebrationOverlay } from '@/components/effects/CelebrationOverlay'
 import { TopNav } from '@/components/layout/TopNav'
 import { ZeroBalanceModal } from '@/components/shared/ZeroBalanceModal'
@@ -42,8 +42,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="dark">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
-          {/* Ambient particles — z-index 0, sits behind the z-index:10 UI wrapper */}
-          <AmbientParticles zIndex={0} />
+          {/* Ambient particles — hidden on game pages to avoid rAF lag */}
+          <ConditionalParticles zIndex={0} />
           {/* Win celebration burst — z-index 9999, above everything */}
           <CelebrationOverlay />
           {/* relative + z-index:10 creates a stacking context above the particle canvas */}

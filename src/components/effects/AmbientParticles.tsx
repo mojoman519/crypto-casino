@@ -1,7 +1,6 @@
 'use client'
 
 import { useRef } from 'react'
-import { usePathname } from 'next/navigation'
 import { useParticleEngine } from '@/hooks/useParticleEngine'
 
 interface Props {
@@ -9,23 +8,13 @@ interface Props {
   className?: string
   /** z-index of the canvas layer */
   zIndex?: number
+  /** Pass false to pause the rAF loop (e.g. on game pages) */
+  enabled?: boolean
 }
 
-/**
- * Drop this anywhere to add ambient floating particles behind content.
- * The canvas is pointer-events:none so it never blocks clicks.
- *
- * Usage:
- *   <div className="relative">
- *     <AmbientParticles />
- *     <YourContent />
- *   </div>
- */
-export function AmbientParticles({ theme, className, zIndex = 0 }: Props) {
-  const pathname = usePathname()
-  const isGamePage = pathname?.startsWith('/games/')
+export function AmbientParticles({ theme, className, zIndex = 0, enabled = true }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  useParticleEngine(canvasRef, { theme, enabled: !isGamePage })
+  useParticleEngine(canvasRef, { theme, enabled })
 
   return (
     <canvas
