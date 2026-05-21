@@ -19,7 +19,7 @@ interface BettingPanelProps {
   canBet: boolean
   autoBet: AutoBetConfig
   setAutoBet: (a: AutoBetConfig | ((prev: AutoBetConfig) => AutoBetConfig)) => void
-  onBet: () => void
+  onBet: (() => void) | undefined
   onStopAutoBet?: () => void
   actionLabel?: string
   actionColor?: string
@@ -225,8 +225,8 @@ export function BettingPanel({
           </Button>
         ) : (
           <Button
-            onClick={onBet}
-            disabled={!canBet || disabled}
+            onClick={onBet ?? undefined}
+            disabled={!canBet || disabled || !onBet}
             className={cn(
               'w-full h-14 text-base font-black transition-all',
               actionColor ?? 'bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400',
