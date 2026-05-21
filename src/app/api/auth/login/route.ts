@@ -9,12 +9,38 @@ function generateOtp(): string {
   return String(crypto.randomInt(100000, 999999))
 }
 
+async function checkLoginRateLimit(ip: string, username: string): Promise<boolean> {
+  const since = new Date(Date.now() - 15 * 60 * 1000) // 15 min window
+  const failedAttempts = await db.auditLog.count({
+    where: {
+      action: 'LOGIN_FAILED',
+      ipAddress: ip,
+      createdAt: { gte: since },
+    },
+  })
+  return failedAttempts >= 10
+}
+
+async function logLoginFailed(ip: string, username: string): Promise<void> {
+  await db.auditLog.create({
+    data: { action: 'LOGIN_FAILED', severity: 'WARN', ipAddress: ip, username },
+  })
+}
+
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown'
     const { username, password } = await req.json()
 
     if (!username || !password) {
       return NextResponse.json({ success: false, error: 'Username and password required' }, { status: 400 })
+    }
+
+    if (await checkLoginRateLimit(ip, username)) {
+      return NextResponse.json(
+        { success: false, error: 'Too many failed attempts. Try again in 15 minutes.' },
+        { status: 429 }
+      )
     }
 
     const user = await db.user.findUnique({
@@ -23,6 +49,7 @@ export async function POST(req: NextRequest) {
     })
 
     if (!user || !user.passwordHash) {
+      await logLoginFailed(ip, username)
       return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 })
     }
 
@@ -32,6 +59,7 @@ export async function POST(req: NextRequest) {
 
     const valid = await comparePassword(password, user.passwordHash)
     if (!valid) {
+      await logLoginFailed(ip, username)
       return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 })
     }
 

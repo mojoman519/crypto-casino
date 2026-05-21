@@ -31,8 +31,12 @@ export async function POST(req: NextRequest) {
     }
 
     const inputHash = crypto.createHash('sha256').update(String(code).trim()).digest('hex')
+    const inputBuf = Buffer.from(inputHash, 'hex')
+    const storedBuf = Buffer.from(record.codeHash, 'hex')
+    const codesMatch = inputBuf.length === storedBuf.length &&
+      crypto.timingSafeEqual(inputBuf, storedBuf)
 
-    if (inputHash !== record.codeHash) {
+    if (!codesMatch) {
       await db.adminOtp.update({ where: { userId }, data: { attempts: { increment: 1 } } })
       const remaining = MAX_ATTEMPTS - record.attempts - 1
       return NextResponse.json({

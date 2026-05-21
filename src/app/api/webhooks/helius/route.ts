@@ -76,12 +76,14 @@ async function creditDeposit(
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify the webhook secret Helius sends in the Authorization header
-    if (WEBHOOK_SECRET) {
-      const authHeader = req.headers.get('Authorization')
-      if (authHeader !== WEBHOOK_SECRET) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
+    // Reject all requests if HELIUS_WEBHOOK_SECRET is not configured
+    if (!WEBHOOK_SECRET) {
+      console.error('[webhooks/helius] HELIUS_WEBHOOK_SECRET env var is not set — rejecting request')
+      return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 })
+    }
+    const authHeader = req.headers.get('Authorization')
+    if (authHeader !== WEBHOOK_SECRET) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const events: HeliusEvent[] = await req.json()

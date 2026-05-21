@@ -7,8 +7,8 @@ const SIGN_KEY = process.env.JWT_SECRET ?? 'dev-signing-key'
 
 export type TxCurrency = 'NC' | 'SOL'
 
-function getBalanceField(currency: TxCurrency): 'neonCoins' | 'balance' {
-  return currency === 'NC' ? 'neonCoins' : 'balance'
+function getBalanceField(currency: TxCurrency): 'neonCoins' | 'solBalance' {
+  return currency === 'NC' ? 'neonCoins' : 'solBalance'
 }
 
 function signPayload(data: object): string {
@@ -57,7 +57,7 @@ export async function beginBet(params: {
     // Re-read balance inside transaction to prevent race conditions
     const user = await tx.user.findUnique({
       where: { id: params.userId },
-      select: { neonCoins: true, balance: true, isBanned: true },
+      select: { neonCoins: true, balance: true, solBalance: true, isBanned: true },
     })
 
     if (!user) throw new Error('User not found')
@@ -173,7 +173,7 @@ export async function resolveBet(params: {
   })
 
   return {
-    newBalance: updatedUser.balance,
+    newBalance: updatedUser.solBalance,
     newNeonCoins: updatedUser.neonCoins,
     txSignature,
   }
